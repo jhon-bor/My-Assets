@@ -1,0 +1,20 @@
+{
+  "back": "返回笔记列表",
+  "minutes": "分钟",
+  "chars": "字",
+  "updated": "更新于",
+  "copyLink": "复制链接",
+  "copied": "已复制",
+  "share": "分享",
+  "prev": "上一篇",
+  "next": "下一篇",
+  "toc": "目录",
+  "noToc": "无目录",
+  "backlinks": "反向链接",
+  "author": "作者",
+  "premium": "会员",
+  "premiumTitle": "这是付费会员专属内容",
+  "premiumDesc": "订阅后可查看完整内容和下载附件。",
+  "subscribeNow": "立即订阅",
+  "approved": "已审核"
+}

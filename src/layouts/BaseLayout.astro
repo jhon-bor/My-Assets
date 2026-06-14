@@ -1,0 +1,549 @@
+---
+import "../styles/global.css";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+
+export interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+  noIndex?: boolean;
+  /** Current language from URL path (e.g. "zh", "en", "ja") */
+  lang?: string;
+}
+
+const {
+  title,
+  description = "我的数字花园 — 记录思考，分享知识。Obsidian 笔记公开站。",
+  ogImage = "/og-default.png",
+  noIndex = false,
+  lang = "zh",
+} = Astro.props;
+
+// HTML lang code — use "zh" for Chinese, "en" for English, etc.
+const htmlLang = ["zh", "en", "ja", "fr", "es", "pt", "de", "it"].includes(lang) ? lang : "zh";
+
+// Nav links — all prefixed with /{lang}/
+const L = `/${lang}`;
+---
+
+<!doctype html>
+<html lang={htmlLang} data-theme="light" data-page-lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="My AI Assets" />
+
+    <!-- Preload font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+    <!-- SEO -->
+    <title>{title} — My AI Assets</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={`${title} — My AI Assets`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    {noIndex && <meta name="robots" content="noindex" />}
+
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.url.origin).href} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <!-- Anti-flash theme -->
+    <script is:inline>
+      (function () {
+        const s = localStorage.getItem("theme");
+        const d = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (s === "dark" || (!s && d)) document.documentElement.setAttribute("data-theme", "dark");
+      })();
+    </script>
+  </head>
+
+  <body class="min-h-screen flex flex-col">
+    <!-- Nav -->
+    <header class="sticky top-0 z-50 border-b transition-all duration-300" style="background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border-color: var(--color-border);">
+      <nav class="container flex items-center justify-between h-14" role="navigation" aria-label="主导航">
+        <!-- Logo -->
+        <a href={`${L}/`} class="flex items-center gap-2 no-underline group" aria-label="回到首页">
+          <span class="text-xl">🤖</span>
+          <span class="text-lg font-extrabold tracking-tight hidden sm:inline" style="color: var(--color-text)">My AI Assets</span>
+        </a>
+
+        <!-- Desktop nav -->
+        <div class="hidden sm:flex items-center gap-1">
+          <a href={`${L}/notes/`} class="nav-link" aria-current={Astro.url.pathname.startsWith("/notes") ? "page" : undefined} data-i="nav.notes">笔记</a>
+          <a href={`${L}/timeline/`} class="nav-link" aria-current={Astro.url.pathname === "/timeline" ? "page" : undefined} data-i="nav.timeline">时间线</a>
+          <a href={`${L}/subscribe/`} class="nav-link" aria-current={Astro.url.pathname === "/subscribe" ? "page" : undefined} data-i="nav.subscribe">订阅</a>
+          <a href={`${L}/publish/`} class="nav-btn-primary" aria-current={Astro.url.pathname === "/publish" ? "page" : undefined} data-i="nav.publish">✍️ 发布</a>
+          <a href={`${L}/admin/`} class="nav-link" aria-current={Astro.url.pathname === "/admin" ? "page" : undefined}
+             style="font-size: 0.8rem; opacity: 0.7;">🛡️</a>
+          <div class="w-px h-6 mx-2" style="background: var(--color-border)"></div>
+          <LanguageSwitcher client:load currentLang={lang} />
+          <theme-toggle />
+        </div>
+
+        <!-- Mobile -->
+        <div class="flex sm:hidden items-center gap-2">
+          <LanguageSwitcher client:load currentLang={lang} />
+          <theme-toggle />
+          <button id="mobile-menu-btn" class="flex items-center justify-center rounded-lg" style="min-height:44px; min-width:44px; color: var(--color-text)" aria-label="打开菜单">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Mobile drawer overlay -->
+    <div id="mobile-drawer-overlay" class="fixed inset-0 z-40 bg-black/50 hidden sm:hidden backdrop-blur-sm" onclick="document.getElementById('mobile-drawer')?.classList.add('translate-x-full');this.classList.add('hidden')"></div>
+
+    <!-- Mobile drawer -->
+    <aside id="mobile-drawer" class="fixed top-0 right-0 z-50 h-full w-72 transform translate-x-full transition-transform duration-300 ease-out sm:hidden shadow-xl" style="background: var(--color-surface); border-left: 1px solid var(--color-border)">
+      <div class="flex items-center justify-between p-4 border-b" style="border-color: var(--color-border)">
+        <span class="font-bold text-lg" style="color: var(--color-text)">📝 导航</span>
+        <button class="flex items-center justify-center rounded-lg" style="min-height:44px;min-width:44px;color:var(--color-text)" aria-label="关闭" onclick="document.getElementById('mobile-drawer')?.classList.add('translate-x-full');document.getElementById('mobile-drawer-overlay')?.classList.add('hidden')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <nav class="p-4 space-y-1">
+        <a href={`${L}/`} class="drawer-link"><span data-i="nav.home">🏠 首页</span></a>
+        <a href={`${L}/notes/`} class="drawer-link"><span data-i="nav.notes">📂 笔记</span></a>
+        <a href={`${L}/timeline/`} class="drawer-link"><span data-i="nav.timeline">⏰ 时间线</span></a>
+        <a href={`${L}/publish/`} class="drawer-link"><span data-i="nav.publish">✍️ 发布文章</span></a>
+        <a href={`${L}/admin/`} class="drawer-link"><span data-i="nav.admin">🛡️ 管理后台</span></a>
+        <a href={`${L}/subscribe/`} class="drawer-link"><span data-i="nav.subscribe">✨ 订阅更新</span></a>
+      </nav>
+    </aside>
+
+    <main class="flex-1"><slot /></main>
+
+    <!-- Footer -->
+    <footer class="py-10 mt-16 border-t" style="border-color: var(--color-border)">
+      <div class="container">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm" style="color: var(--color-text-muted)">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🤖</span>
+            <span class="font-semibold" style="color: var(--color-text)">My AI Assets</span>
+            <span data-i="footer.tagline">— Digital Garden</span>
+          </div>
+          <div class="flex items-center gap-6">
+            <a href={`${L}/notes/`} style="color: var(--color-text-secondary)" data-i="nav.notes">笔记</a>
+            <a href={`${L}/timeline/`} style="color: var(--color-text-secondary)" data-i="nav.timeline">时间线</a>
+            <a href={`${L}/subscribe/`} style="color: var(--color-primary)" data-i="nav.subscribe">订阅</a>
+          </div>
+        </div>
+        <p class="text-center mt-6" style="font-size: 0.75rem; color: var(--color-text-muted)">
+          &copy; {new Date().getFullYear()} My AI Assets. Built with ❤️
+        </p>
+      </div>
+    </footer>
+
+    <back-to-top />
+
+    <!-- i18n engine (i18next) -->
+    <script>
+      import { init } from "../i18n/init";
+
+      // Lightweight sync translation — works immediately before i18next loads
+      var T = {
+        zh: {
+          "nav.home":"首页","nav.notes":"笔记","nav.timeline":"时间线","nav.subscribe":"订阅","nav.publish":"发布","nav.admin":"管理后台",
+          "footer.tagline":"— 数字花园","footer.notes":"笔记","footer.timeline":"时间线","footer.subscribe":"订阅",
+          "hero.badge":"篇笔记 · 持续更新","hero.title":"共享共建","hero.titleSub":"数字花园","hero.desc":"每一篇笔记，都是一颗种子。分享知识，共建花园，让思考在互联网上生长。",
+          "hero.explore":"探索笔记","hero.contribute":"参与共建","hero.statNotes":"篇笔记","hero.statFolders":"个主题","hero.statInfinite":"无限可能",
+          "section.featured":"精选","section.recommended":"推荐","section.latest":"最新","section.all":"全部","section.community":"社区投稿","section.approved":"已审核",
+          "sidebar.folders":"文件夹","sidebar.links":"快捷","sidebar.timeline":"时间线","sidebar.subscribe":"订阅更新","sidebar.publish":"发布文章","sidebar.folderNav":"文件夹导航",
+          "folder.技术笔记":"技术笔记","folder.生活随笔":"生活随笔","folder.关于":"关于","folder.未分类":"未分类","folder.测试":"测试","folder.公告":"公告",
+          "notes.all":"全部笔记","notes.filter":"文件夹筛选","notes.noMatch":"没有匹配的笔记","notes.clearFilter":"清除筛选","notes.tags":"标签",
+          "note.back":"返回笔记列表","note.minutes":"分钟","note.chars":"字","note.updated":"更新于","note.copyLink":"复制链接","note.copied":"已复制","note.prev":"上一篇","note.next":"下一篇","note.toc":"目录","note.noToc":"无目录","note.backlinks":"反向链接",
+          "timeline.title":"时间线","timeline.count":"篇笔记，按时间排列","timeline.empty":"暂无笔记","timeline.yearMonth":"年","timeline.weekday":"周","timeline.weekdays":["日","一","二","三","四","五","六"],"timeline.monthNames":["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],
+          "subscribe.title":"订阅更新","subscribe.desc":"免费订阅，第一时间收到新笔记推送。","subscribe.formTitle":"输入邮箱，免费订阅","subscribe.button":"免费订阅","subscribe.placeholder":"输入你的邮箱地址","subscribe.privacy":"不发送垃圾邮件，随时可退订。","subscribe.benefits":"订阅权益","subscribe.updates":"最近更新","subscribe.noUpdates":"暂无更新记录","subscribe.benefit1Title":"邮件通知","subscribe.benefit1Desc":"新笔记发布后第一时间推送到你的邮箱","subscribe.benefit2Title":"附件下载","subscribe.benefit2Desc":"获取付费笔记的附件、模板、源文件","subscribe.benefit3Title":"精选内容","subscribe.benefit3Desc":"独家深度长文，会员专属阅读","subscribe.benefit4Title":"无广告","subscribe.benefit4Desc":"清爽阅读，永远没有广告打扰",
+          "quick.timeline":"时间线","quick.timelineDesc":"按时间浏览所有笔记","quick.subscribe":"订阅更新","quick.subscribeDesc":"第一时间获取新内容",
+          "theme.light":"切换到浅色模式","theme.dark":"切换到深色模式","mobile.menu":"导航","mobile.close":"关闭",
+          "hero.statNotesUnit":"篇笔记",
+          "note.translatedFrom":"翻译自","note.translationBy":"翻译引擎","note.originalText":"原文",
+          "lang.zh":"中文","lang.en":"English","lang.ja":"日本語","lang.fr":"Français","lang.es":"Español","lang.pt":"Português","lang.de":"Deutsch","lang.it":"Italiano"
+        },
+        en: {
+          "nav.home":"Home","nav.notes":"Notes","nav.timeline":"Timeline","nav.subscribe":"Subscribe","nav.publish":"Publish","nav.admin":"Admin",
+          "footer.tagline":"— Digital Garden","footer.notes":"Notes","footer.timeline":"Timeline","footer.subscribe":"Subscribe",
+          "hero.badge":"notes · updating","hero.title":"Share & Build","hero.titleSub":"Digital Garden","hero.desc":"Every note is a seed. Share knowledge, build a garden together, let ideas grow on the internet.",
+          "hero.explore":"Explore","hero.contribute":"Contribute","hero.statNotes":"Notes","hero.statFolders":"Topics","hero.statInfinite":"Infinite",
+          "section.featured":"Featured","section.recommended":"Recommended","section.latest":"Latest","section.all":"All","section.community":"Community","section.approved":"Approved",
+          "sidebar.folders":"Folders","sidebar.links":"Links","sidebar.timeline":"Timeline","sidebar.subscribe":"Subscribe","sidebar.publish":"Publish","sidebar.folderNav":"Folder Navigation",
+          "folder.技术笔记":"Tech Notes","folder.生活随笔":"Life","folder.关于":"About","folder.未分类":"Uncategorized","folder.测试":"Test","folder.公告":"Announcement",
+          "notes.all":"All Notes","notes.filter":"Filter by folder","notes.noMatch":"No matching notes","notes.clearFilter":"Clear","notes.tags":"Tags",
+          "note.back":"Back to notes","note.minutes":"min","note.chars":"chars","note.updated":"Updated","note.copyLink":"Copy link","note.copied":"Copied!","note.prev":"Previous","note.next":"Next","note.toc":"Contents","note.noToc":"No contents","note.backlinks":"Backlinks",
+          "timeline.title":"Timeline","timeline.count":"notes, sorted by date","timeline.empty":"No notes yet","timeline.yearMonth":"","timeline.weekday":"","timeline.weekdays":["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],"timeline.monthNames":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+          "subscribe.title":"Subscribe","subscribe.desc":"Subscribe for free, get notified when new notes are published.","subscribe.formTitle":"Enter your email","subscribe.button":"Subscribe","subscribe.placeholder":"your@email.com","subscribe.privacy":"No spam, unsubscribe anytime.","subscribe.benefits":"Benefits","subscribe.updates":"Recent Updates","subscribe.noUpdates":"No updates yet","subscribe.benefit1Title":"Email Notifications","subscribe.benefit1Desc":"Get notified as soon as new notes are published","subscribe.benefit2Title":"Downloads","subscribe.benefit2Desc":"Access attachments, templates, and source files","subscribe.benefit3Title":"Premium Content","subscribe.benefit3Desc":"Exclusive in-depth articles for members","subscribe.benefit4Title":"Ad-Free","subscribe.benefit4Desc":"Clean reading experience, no ads ever",
+          "quick.timeline":"Timeline","quick.timelineDesc":"Browse notes by date","quick.subscribe":"Subscribe","quick.subscribeDesc":"Get notified first",
+          "theme.light":"Switch to light mode","theme.dark":"Switch to dark mode","mobile.menu":"Menu","mobile.close":"Close",
+          "hero.statNotesUnit":"Notes",
+          "note.translatedFrom":"Translated from","note.translationBy":"Powered by","note.originalText":"Original",
+          "lang.zh":"Chinese","lang.en":"English","lang.ja":"Japanese","lang.fr":"French","lang.es":"Spanish","lang.pt":"Portuguese","lang.de":"German","lang.it":"Italian"
+        },
+        ja: {
+          "nav.home":"ホーム","nav.notes":"ノート","nav.timeline":"タイムライン","nav.subscribe":"購読","nav.publish":"公開","nav.admin":"管理",
+          "footer.tagline":"— デジタルガーデン","footer.notes":"ノート","footer.timeline":"タイムライン","footer.subscribe":"購読",
+          "hero.badge":"件のノート · 更新中","hero.title":"共有・共建","hero.titleSub":"デジタルガーデン","hero.desc":"すべてのノートは種です。知識を共有し、庭を共に作り上げ、互联网上思考を成長させましょう。",
+          "hero.explore":"ノートを探す","hero.contribute":"参加する","hero.statNotes":"ノート","hero.statFolders":"トピック","hero.statInfinite":"無限",
+          "section.featured":"注目","section.recommended":"おすすめ","section.latest":"最新","section.all":"すべて","section.community":"コミュニティ","section.approved":"承認済み",
+          "sidebar.folders":"フォルダー","sidebar.links":"リンク","sidebar.timeline":"タイムライン","sidebar.subscribe":"購読","sidebar.publish":"公開","sidebar.folderNav":"フォルダー案内",
+          "folder.技术笔记":"技術ノート","folder.生活随笔":"ライフ","folder.关于":"概要","folder.未分類":"未分類","folder.テスト":"テスト","folder.公告":"お知らせ",
+          "notes.all":"すべてのノート","notes.filter":"フォルダー絞り込み","notes.noMatch":"一致するノートなし","notes.clearFilter":"クリア","notes.tags":"タグ",
+          "note.back":"ノート一覧に戻る","note.minutes":"分","note.chars":"文字","note.updated":"更新","note.copyLink":"リンクをコピー","note.copied":"コピーしました","note.prev":"前へ","note.next":"次へ","note.toc":"目次","note.noToc":"目次なし","note.backlinks":"リンク元",
+          "timeline.title":"タイムライン","timeline.count":"ノート、日付順","timeline.empty":"ノートなし","timeline.yearMonth":"年","timeline.weekday":"","timeline.weekdays":["日","月","火","水","木","金","土"],"timeline.monthNames":["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],
+          "subscribe.title":"購読する","subscribe.desc":"無料購読、新着ノートをすぐお届け。","subscribe.formTitle":"メールを入力して購読","subscribe.button":"購読","subscribe.placeholder":"your@email.com","subscribe.privacy":"スパムなし、脱退自由。","subscribe.benefits":"特典","subscribe.updates":"最新更新","subscribe.noUpdates":"更新なし","subscribe.benefit1Title":"メール通知","subscribe.benefit1Desc":"新着ノートをすぐメールでお知らせ","subscribe.benefit2Title":"ダウンロード","subscribe.benefit2Desc":"添付ファイル、テンプレート、ソースファイル","subscribe.benefit3Title":"プレミアム記事","subscribe.benefit3Desc":"会員限定深度記事","subscribe.benefit4Title":"広告なし","subscribe.benefit4Desc":"爽快な読書体験",
+          "quick.timeline":"タイムライン","quick.timelineDesc":"日付でノートを検索","quick.subscribe":"購読","quick.subscribeDesc":"新着をすぐ取得",
+          "theme.light":"ライトモードに切り替え","theme.dark":"ダークモードに切り替え","mobile.menu":"メニュー","mobile.close":"閉じる",
+          "hero.statNotesUnit":"件のノート",
+          "note.translatedFrom":"翻訳元","note.translationBy":"翻訳エンジン","note.originalText":"原文",
+          "lang.zh":"中国語","lang.en":"English","lang.ja":"日本語","lang.fr":"Français","lang.es":"Español","lang.pt":"Português","lang.de":"Deutsch","lang.it":"Italiano"
+        },
+        fr: {
+          "nav.home":"Accueil","nav.notes":"Notes","nav.timeline":"Chronologie","nav.subscribe":"Abonner","nav.publish":"Publier","nav.admin":"Admin",
+          "footer.tagline":"— Jardin Numérique","footer.notes":"Notes","footer.timeline":"Chronologie","footer.subscribe":"Abonner",
+          "hero.badge":"notes · mise à jour","hero.title":"Partager & Créer","hero.titleSub":"Jardin Numérique","hero.desc":"Chaque note est une graine. Partagez les connaissances, construisez un jardin ensemble.",
+          "hero.explore":"Explorer","hero.contribute":"Contribuer","hero.statNotes":"Notes","hero.statFolders":"Sujets","hero.statInfinite":"Infini",
+          "section.featured":"À la une","section.recommended":"Recommandé","section.latest":"Récent","section.all":"Tout","section.community":"Communauté","section.approved":"Approuvé",
+          "sidebar.folders":"Dossiers","sidebar.links":"Liens","sidebar.timeline":"Chronologie","sidebar.subscribe":"Abonner","sidebar.publish":"Publier","sidebar.folderNav":"Navigation dossiers",
+          "folder.技术笔记":"Notes tech","folder.生活随笔":"Vie","folder.关于":"À propos","folder.未分类":"Non classé","folder.测试":"Test","folder.公告":"Annonce",
+          "notes.all":"Toutes les notes","notes.filter":"Filtrer","notes.noMatch":"Aucune note","notes.clearFilter":"Effacer","notes.tags":"Tags",
+          "note.back":"Retour","note.minutes":"min","note.chars":"car.","note.updated":"Mis à jour","note.copyLink":"Copier le lien","note.copied":"Copié !","note.prev":"Précédent","note.next":"Suivant","note.toc":"Contenu","note.noToc":"Sans contenu","note.backlinks":"Rétroliens",
+          "timeline.title":"Chronologie","timeline.count":"notes, par date","timeline.empty":"Aucune note","timeline.yearMonth":"","timeline.weekday":"","timeline.weekdays":["dim","lun","mar","mer","jeu","ven","sam"],"timeline.monthNames":["jan","fév","mar","avr","mai","jui","jui","aoû","sep","oct","nov","déc"],
+          "subscribe.title":"S'abonner","subscribe.desc":"Abonnement gratuit, notified第一时间.","subscribe.formTitle":"Entrez votre email","subscribe.button":"S'abonner","subscribe.placeholder":"your@email.com","subscribe.privacy":"Pas de spam.","subscribe.benefits":"Avantages","subscribe.updates":"Mises à jour","subscribe.noUpdates":"Aucune","subscribe.benefit1Title":"Notifications","subscribe.benefit1Desc":"Soyez notifié dès publication","subscribe.benefit2Title":"Téléchargements","subscribe.benefit2Desc":"Pièces jointes et sources","subscribe.benefit3Title":"Contenu premium","subscribe.benefit3Desc":"Articles approfondis exclusifs","subscribe.benefit4Title":"Sans pub","subscribe.benefit4Desc":"Lecture propre",
+          "quick.timeline":"Chronologie","quick.timelineDesc":"Parcourir par date","quick.subscribe":"Abonner","quick.subscribeDesc":"Notify first",
+          "theme.light":"Mode clair","theme.dark":"Mode sombre","mobile.menu":"Menu","mobile.close":"Fermer",
+          "hero.statNotesUnit":"Notes",
+          "note.translatedFrom":"Traduit de","note.translationBy":"Traduit par","note.originalText":"Original",
+          "lang.zh":"Chinois","lang.en":"English","lang.ja":"Japonais","lang.fr":"Français","lang.es":"Espagnol","lang.pt":"Portugais","lang.de":"Allemand","lang.it":"Italien"
+        },
+        es: {
+          "nav.home":"Inicio","nav.notes":"Notas","nav.timeline":"Línea de tiempo","nav.subscribe":"Suscribir","nav.publish":"Publicar","nav.admin":"Admin",
+          "footer.tagline":"— Jardín Digital","footer.notes":"Notas","footer.timeline":"Línea de tiempo","footer.subscribe":"Suscribir",
+          "hero.badge":"notas · actualizando","hero.title":"Comparte y Construye","hero.titleSub":"Jardín Digital","hero.desc":"Cada nota es una semilla. Comparte conocimiento, construye un jardín juntos.",
+          "hero.explore":"Explorar","hero.contribute":"Contribuir","hero.statNotes":"Notas","hero.statFolders":"Temas","hero.statInfinite":"Infinito",
+          "section.featured":"Destacado","section.recommended":"Recomendado","section.latest":"Reciente","section.all":"Todo","section.community":"Comunidad","section.approved":"Aprobado",
+          "sidebar.folders":"Carpetas","sidebar.links":"Enlaces","sidebar.timeline":"Línea de tiempo","sidebar.subscribe":"Suscribir","sidebar.publish":"Publicar","sidebar.folderNav":"Navegación",
+          "folder.技术笔记":"Notas técnicas","folder.生活随笔":"Vida","folder.关于":"Acerca de","folder.未分类":"Sin categoría","folder.测试":"Prueba","folder.公告":"Anuncio",
+          "notes.all":"Todas las notas","notes.filter":"Filtrar","notes.noMatch":"Sin notas","notes.clearFilter":"Limpiar","notes.tags":"Etiquetas",
+          "note.back":"Volver","note.minutes":"min","note.chars":"car.","note.updated":"Actualizado","note.copyLink":"Copiar enlace","note.copied":"¡Copiado!","note.prev":"Anterior","note.next":"Siguiente","note.toc":"Contenido","note.noToc":"Sin contenido","note.backlinks":"Enlaces entrantes",
+          "timeline.title":"Línea de tiempo","timeline.count":"notas, por fecha","timeline.empty":"Sin notas","timeline.yearMonth":"","timeline.weekday":"","timeline.weekdays":["dom","lun","mar","mié","jue","vie","sáb"],"timeline.monthNames":["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"],
+          "subscribe.title":"Suscribirse","subscribe.desc":"Suscripción gratuita, recibe novedades.","subscribe.formTitle":"Introduce tu email","subscribe.button":"Suscribirse","subscribe.placeholder":"tu@email.com","subscribe.privacy":"Sin spam.","subscribe.benefits":"Beneficios","subscribe.updates":"Actualizaciones","subscribe.noUpdates":"Sin actualizaciones","subscribe.benefit1Title":"Notificaciones","subscribe.benefit1Desc":"Recibe avisos al instante","subscribe.benefit2Title":"Descargas","subscribe.benefit2Desc":"Archivos adjuntos y fuentes","subscribe.benefit3Title":"Contenido premium","subscribe.benefit3Desc":"Artículos exclusivos","subscribe.benefit4Title":"Sin anuncios","subscribe.benefit4Desc":"Lectura limpia",
+          "quick.timeline":"Línea de tiempo","quick.timelineDesc":"Explorar por fecha","quick.subscribe":"Suscribirse","quick.subscribeDesc":"Recibe primero",
+          "theme.light":"Modo claro","theme.dark":"Modo oscuro","mobile.menu":"Menú","mobile.close":"Cerrar",
+          "hero.statNotesUnit":"Notas",
+          "note.translatedFrom":"Traducido de","note.translationBy":"Traducido por","note.originalText":"Original",
+          "lang.zh":"Chino","lang.en":"English","lang.ja":"Japonés","lang.fr":"Francés","lang.es":"Español","lang.pt":"Portugués","lang.de":"Alemán","lang.it":"Italiano"
+        },
+        pt: {
+          "nav.home":"Início","nav.notes":"Notas","nav.timeline":"Linha do tempo","nav.subscribe":"Inscrever","nav.publish":"Publicar","nav.admin":"Admin",
+          "footer.tagline":"— Jardim Digital","footer.notes":"Notas","footer.timeline":"Linha do tempo","footer.subscribe":"Inscrever",
+          "hero.badge":"notas · atualizando","hero.title":"Compartilhe & Construa","hero.titleSub":"Jardim Digital","hero.desc":"Cada nota é uma semente. Compartilhe conhecimento, construa um jardim juntos.",
+          "hero.explore":"Explorar","hero.contribute":"Contribuir","hero.statNotes":"Notas","hero.statFolders":"Tópicos","hero.statInfinite":"Infinito",
+          "section.featured":"Destaque","section.recommended":"Recomendado","section.latest":"Recente","section.all":"Tudo","section.community":"Comunidade","section.approved":"Aprovado",
+          "sidebar.folders":"Pastas","sidebar.links":"Links","sidebar.timeline":"Linha do tempo","sidebar.subscribe":"Inscrever","sidebar.publish":"Publicar","sidebar.folderNav":"Navegação",
+          "folder.技术笔记":"Notas técnicas","folder.生活随笔":"Vida","folder.关于":"Sobre","folder.未分类":"Sem categoria","folder.测试":"Teste","folder.公告":"Anúncio",
+          "notes.all":"Todas as notas","notes.filter":"Filtrar","notes.noMatch":"Sem notas","notes.clearFilter":"Limpar","notes.tags":"Tags",
+          "note.back":"Voltar","note.minutes":"min","note.chars":"car.","note.updated":"Atualizado","note.copyLink":"Copiar link","note.copied":"Copiado!","note.prev":"Anterior","note.next":"Próximo","note.toc":"Conteúdo","note.noToc":"Sem conteúdo","note.backlinks":"Backlinks",
+          "timeline.title":"Linha do tempo","timeline.count":"notas, por data","timeline.empty":"Sem notas","timeline.yearMonth":"","timeline.weekday":"","timeline.weekdays":["dom","seg","ter","qua","qui","sex","sáb"],"timeline.monthNames":["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"],
+          "subscribe.title":"Inscrever-se","subscribe.desc":"Assine grátis, receba novidades.","subscribe.formTitle":"Digite seu email","subscribe.button":"Inscrever-se","subscribe.placeholder":"seu@email.com","subscribe.privacy":"Sem spam.","subscribe.benefits":"Benefícios","subscribe.updates":"Atualizações","subscribe.noUpdates":"Sem atualizações","subscribe.benefit1Title":"Notificações","subscribe.benefit1Desc":"Receba alertas ao publicar","subscribe.benefit2Title":"Downloads","subscribe.benefit2Desc":"Anexos e fontes","subscribe.benefit3Title":"Conteúdo premium","subscribe.benefit3Desc":"Artigos exclusivos","subscribe.benefit4Title":"Sem anúncios","subscribe.benefit4Desc":"Leitura limpa",
+          "quick.timeline":"Linha do tempo","quick.timelineDesc":"Explorar por data","quick.subscribe":"Inscrever-se","quick.subscribeDesc":"Receba primeiro",
+          "theme.light":"Modo claro","theme.dark":"Modo escuro","mobile.menu":"Menu","mobile.close":"Fechar",
+          "hero.statNotesUnit":"Notas",
+          "note.translatedFrom":"Traduzido de","note.translationBy":"Traduzido por","note.originalText":"Original",
+          "lang.zh":"Chinês","lang.en":"English","lang.ja":"Japonês","lang.fr":"Francês","lang.es":"Espanhol","lang.pt":"Português","lang.de":"Alemão","lang.it":"Italiano"
+        },
+        de: {
+          "nav.home":"Startseite","nav.notes":"Notizen","nav.timeline":"Zeitstrahl","nav.subscribe":"Abonnieren","nav.publish":"Veröffentlichen","nav.admin":"Admin",
+          "footer.tagline":"— Digitaler Garten","footer.notes":"Notizen","footer.timeline":"Zeitstrahl","footer.subscribe":"Abonnieren",
+          "hero.badge":"Notizen · wird aktualisiert","hero.title":"Teilen & Aufbauen","hero.titleSub":"Digitaler Garten","hero.desc":"Jede Notiz ist ein Samen. Teile Wissen, baue gemeinsam einen Garten.",
+          "hero.explore":"Entdecken","hero.contribute":"Beitragen","hero.statNotes":"Notizen","hero.statFolders":"Themen","hero.statInfinite":"Unendlich",
+          "section.featured":"Empfohlen","section.recommended":"Empfohlen","section.latest":"Neueste","section.all":"Alle","section.community":"Gemeinschaft","section.approved":"Genehmigt",
+          "sidebar.folders":"Ordner","sidebar.links":"Links","sidebar.timeline":"Zeitstrahl","sidebar.subscribe":"Abonnieren","sidebar.publish":"Veröffentlichen","sidebar.folderNav":"Ordner navigation",
+          "folder.技术笔记":"Tech-Notizen","folder.生活随笔":"Leben","folder.关于":"Über","folder.未分类":"Unkategorisiert","folder.测试":"Test","folder.公告":"Ankündigung",
+          "notes.all":"Alle Notizen","notes.filter":"Filtern","notes.noMatch":"Keine Notizen","notes.clearFilter":"Löschen","notes.tags":"Tags",
+          "note.back":"Zurück","note.minutes":"Min","note.chars":"Zeichen","note.updated":"Aktualisiert","note.copyLink":"Link kopieren","note.copied":"Kopiert!","note.prev":"Vorherige","note.next":"Nächste","note.toc":"Inhalt","note.noToc":"Kein Inhalt","note.backlinks":"Rückverweise",
+          "timeline.title":"Zeitstrahl","timeline.count":"Notizen, nach Datum","timeline.empty":"Keine Notizen","timeline.yearMonth":"","timeline.weekday":"","timeline.weekdays":["So","Mo","Di","Mi","Do","Fr","Sa"],"timeline.monthNames":["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"],
+          "subscribe.title":"Abonnieren","subscribe.desc":"Kostenlos abonnieren, Neues zuerst.","subscribe.formTitle":"E-Mail eingeben","subscribe.button":"Abonnieren","subscribe.placeholder":"deine@email.de","subscribe.privacy":"Kein Spam.","subscribe.benefits":"Vorteile","subscribe.updates":"Updates","subscribe.noUpdates":"Keine Updates","subscribe.benefit1Title":"Benachrichtigungen","subscribe.benefit1Desc":"Sofort bei neuer Notiz","subscribe.benefit2Title":"Downloads","subscribe.benefit2Desc":"Anhänge und Vorlagen","subscribe.benefit3Title":"Premium-Inhalt","subscribe.benefit3Desc":"Exklusive Artikel","subscribe.benefit4Title":"Keine Werbung","subscribe.benefit4Desc":"Sauberes Lesen",
+          "quick.timeline":"Zeitstrahl","quick.timelineDesc":"Nach Datum browsen","quick.subscribe":"Abonnieren","quick.subscribeDesc":"Zuerst informiert",
+          "theme.light":"Heller Modus","theme.dark":"Dunkler Modus","mobile.menu":"Menü","mobile.close":"Schließen",
+          "hero.statNotesUnit":"Notizen",
+          "note.translatedFrom":"Übersetzt aus","note.translationBy":"Übersetzt von","note.originalText":"Original",
+          "lang.zh":"Chinesisch","lang.en":"English","lang.ja":"Japanisch","lang.fr":"Französisch","lang.es":"Spanisch","lang.pt":"Portugiesisch","lang.de":"Deutsch","lang.it":"Italienisch"
+        },
+        it: {
+          "nav.home":"Home","nav.notes":"Note","nav.timeline":"Timeline","nav.subscribe":"Iscriviti","nav.publish":"Pubblica","nav.admin":"Admin",
+          "footer.tagline":"— Giardino Digitale","footer.notes":"Note","footer.timeline":"Timeline","footer.subscribe":"Iscriviti",
+          "hero.badge":"note · in aggiornamento","hero.title":"Condividi & Costruisci","hero.titleSub":"Giardino Digitale","hero.desc":"Ogni nota è un seme. Condividi conoscenza, costruisci un giardino insieme.",
+          "hero.explore":"Esplora","hero.contribute":"Contribuisci","hero.statNotes":"Note","hero.statFolders":"Argomenti","hero.statInfinite":"Infinito",
+          "section.featured":"In evidenza","section.recommended":"Consigliato","section.latest":"Recente","section.all":"Tutto","section.community":"Comunità","section.approved":"Approvato",
+          "sidebar.folders":"Cartelle","sidebar.links":"Link","sidebar.timeline":"Timeline","sidebar.subscribe":"Iscriviti","sidebar.publish":"Pubblica","sidebar.folderNav":"Navigazione",
+          "folder.技术笔记":"Note tech","folder.生活随笔":"Vita","folder.关于":"Info","folder.未分类":"Non classificato","folder.测试":"Test","folder.公告":"Annuncio",
+          "notes.all":"Tutte le note","notes.filter":"Filtra","notes.noMatch":"Nessuna nota","notes.clearFilter":"Cancella","notes.tags":"Tag",
+          "note.back":"Torna","note.minutes":"min","note.chars":"car.","note.updated":"Aggiornato","note.copyLink":"Copia link","note.copied":"Copiato!","note.prev":"Precedente","note.next":"Successivo","note.toc":"Contenuti","note.noToc":"Senza contenuti","note.backlinks":"Backlink",
+          "timeline.title":"Timeline","timeline.count":"note, per data","timeline.empty":"Nessuna nota","timeline.yearMonth":"","timeline.weekday":"","timeline.weekdays":["dom","lun","mar","mer","gio","ven","sab"],"timeline.monthNames":["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"],
+          "subscribe.title":"Iscriviti","subscribe.desc":"Iscriviti gratis, ricevi novità.","subscribe.formTitle":"Inserisci email","subscribe.button":"Iscriviti","subscribe.placeholder":"tua@email.it","subscribe.privacy":"No spam.","subscribe.benefits":"Vantaggi","subscribe.updates":"Aggiornamenti","subscribe.noUpdates":"Nessun aggiornamento","subscribe.benefit1Title":"Notifiche","subscribe.benefit1Desc":"Avvisi appena pubblicato","subscribe.benefit2Title":"Download","subscribe.benefit2Desc":"Allegati e sorgenti","subscribe.benefit3Title":"Contenuto premium","subscribe.benefit3Desc":"Articoli esclusivi","subscribe.benefit4Title":"Senza pubblicità","subscribe.benefit4Desc":"Lettura pulita",
+          "quick.timeline":"Timeline","quick.timelineDesc":"Sfoglia per data","quick.subscribe":"Iscriviti","quick.subscribeDesc":"Ricevi per primo",
+          "theme.light":"Modalità chiara","theme.dark":"Modalità scura","mobile.menu":"Menu","mobile.close":"Chiudi",
+          "hero.statNotesUnit":"Note",
+          "note.translatedFrom":"Tradotto da","note.translationBy":"Tradotto con","note.originalText":"Originale",
+          "lang.zh":"Cinese","lang.en":"English","lang.ja":"Giapponese","lang.fr":"Francese","lang.es":"Spagnolo","lang.pt":"Portoghese","lang.de":"Tedesco","lang.it":"Italiano"
+        }
+      };
+
+      // Get language from URL path (e.g. /ja/notes -> ja)
+      function getUrlLang() {
+        var m = window.location.pathname.match(/^\/([a-z]{2})\//);
+        if (m) return m[1];
+        return null;
+      }
+
+      function syncUpdateUI() {
+        // Prefer URL language over localStorage
+        var urlLang = getUrlLang();
+        var lang = urlLang || localStorage.getItem("lookfinde_lang") || "zh";
+        var dict = T[lang] || T.zh;
+        document.documentElement.setAttribute("data-lang", lang);
+
+        // Translate all [data-i] elements
+        document.querySelectorAll("[data-i]").forEach(function(el) {
+          var k = el.getAttribute("data-i");
+          if (k) {
+            var v = (dict && dict[k]) || (T.zh[k]) || k;
+            if (v && v !== k) {
+              var count = el.getAttribute("data-count");
+              el.textContent = count ? count + " " + v : v;
+            }
+          }
+        });
+
+        // Translate folder names
+        document.querySelectorAll("[data-folder-name]").forEach(function(el) {
+          var f = el.getAttribute("data-folder-name");
+          if (f) {
+            var v = (dict && dict["folder." + f]) || (T.zh["folder." + f]);
+            if (v) el.textContent = "📁 " + v;
+          }
+        });
+
+        // Translate note titles (data-title-{lang} → data-title-{currentLang})
+        document.querySelectorAll(".note-title").forEach(function(el) {
+          var t = el.getAttribute("data-title-" + lang) || el.getAttribute("data-title-zh") || "";
+          if (t) el.textContent = t;
+        });
+
+        // Translate card titles/summaries
+        document.querySelectorAll(".card-title").forEach(function(el) {
+          var card = el.closest(".note-card");
+          if (card) {
+            var t = (card.getAttribute("data-titles") || "{}");
+            try {
+              var titles = JSON.parse(t);
+              var v = titles[lang] || titles.zh || "";
+              if (v) el.textContent = v;
+            } catch(e) {}
+          }
+        });
+        document.querySelectorAll(".card-summary").forEach(function(el) {
+          var card = el.closest(".note-card");
+          if (card) {
+            var s = (card.getAttribute("data-summaries") || "{}");
+            try {
+              var summaries = JSON.parse(s);
+              var v = summaries[lang] || summaries.zh || "";
+              if (v) el.textContent = v;
+            } catch(e) {}
+          }
+        });
+      }
+
+      // Apply immediately on page load
+      syncUpdateUI();
+
+      // Listen for langchange immediately (sync fallback before i18next loads)
+      window.addEventListener("langchange", syncUpdateUI);
+
+      // Full i18next-powered update after init
+      init().then(function(i18n) {
+        function updateUI() {
+          // Prefer URL language over localStorage
+          var urlLang = getUrlLang();
+          var lang = urlLang || localStorage.getItem("lookfinde_lang") || "zh";
+          var dict = T[lang] || T.zh;
+          document.documentElement.setAttribute("data-lang", lang);
+
+          // i18next handles data-i / data-i18n / data-i18n-placeholder / data-i18n-title
+          document.querySelectorAll("[data-i]").forEach(function(el) {
+            var k = el.getAttribute("data-i");
+            if (k) {
+              var t = i18n.t(k, { lng: lang });
+              if (t && t !== k) el.textContent = t;
+            }
+          });
+          document.querySelectorAll("[data-i18n]").forEach(function(el) {
+            var k = el.getAttribute("data-i18n");
+            if (k) {
+              var t = i18n.t(k, { lng: lang });
+              if (t && t !== k) el.textContent = t;
+            }
+          });
+          document.querySelectorAll("[data-i18n-placeholder]").forEach(function(el) {
+            var k = el.getAttribute("data-i18n-placeholder");
+            if (k) {
+              var t = i18n.t(k, { lng: lang });
+              if (t && t !== k) (el).placeholder = t;
+            }
+          });
+          document.querySelectorAll("[data-i18n-title]").forEach(function(el) {
+            var k = el.getAttribute("data-i18n-title");
+            if (k) {
+              var t = i18n.t(k, { lng: lang });
+              if (t && t !== k) el.setAttribute("title", t);
+            }
+          });
+          document.querySelectorAll("[data-folder-name]").forEach(function(el) {
+            var f = el.getAttribute("data-folder-name");
+            if (f) {
+              var v = i18n.t("folder." + f, { lng: lang });
+              if (v && v !== "folder." + f) el.textContent = "📁 " + v;
+            }
+          });
+
+          // Note titles via data-title-{lang}
+          document.querySelectorAll(".note-title").forEach(function(el) {
+            var t = el.getAttribute("data-title-" + lang) || el.getAttribute("data-title-zh") || "";
+            if (t) el.textContent = t;
+          });
+
+          // Card titles/summaries via data-titles / data-summaries JSON
+          document.querySelectorAll(".card-title").forEach(function(el) {
+            var card = el.closest(".note-card");
+            if (card) {
+              try {
+                var titles = JSON.parse(card.getAttribute("data-titles") || "{}");
+                var v = titles[lang] || titles.zh || "";
+                if (v) el.textContent = v;
+              } catch(e) {}
+            }
+          });
+          document.querySelectorAll(".card-summary").forEach(function(el) {
+            var card = el.closest(".note-card");
+            if (card) {
+              try {
+                var summaries = JSON.parse(card.getAttribute("data-summaries") || "{}");
+                var v = summaries[lang] || summaries.zh || "";
+                if (v) el.textContent = v;
+              } catch(e) {}
+            }
+          });
+
+          // Subscribe benefits
+          document.querySelectorAll(".benefit-title").forEach(function(el, i) {
+            var v = i18n.t("subscribe.benefit" + (i+1) + "Title", { lng: lang }) || "";
+            if (v) el.textContent = v;
+          });
+          document.querySelectorAll(".benefit-desc").forEach(function(el, i) {
+            var v = i18n.t("subscribe.benefit" + (i+1) + "Desc", { lng: lang }) || "";
+            if (v) el.textContent = v;
+          });
+
+          // Timeline month labels
+          document.querySelectorAll(".tl-month-label").forEach(function(el) {
+            var year = el.getAttribute("data-year");
+            var month = el.getAttribute("data-month");
+            if (year && month) {
+              var mNames = T[lang] && T[lang]["timeline.monthNames"] ? T[lang]["timeline.monthNames"] : T.zh["timeline.monthNames"];
+              var monthName = mNames[parseInt(month)-1];
+              var ym = lang === "en" ? "" : (T[lang] && T[lang]["timeline.yearMonth"] ? T[lang]["timeline.yearMonth"] : "年");
+              el.textContent = year + ym + monthName;
+            }
+          });
+
+          // Timeline weekday
+          document.querySelectorAll(".tl-weekday").forEach(function(el) {
+            var day = el.getAttribute("data-day");
+            if (day !== null) {
+              var weekdays = T[lang] && T[lang]["timeline.weekdays"] ? T[lang]["timeline.weekdays"] : T.zh["timeline.weekdays"];
+              el.textContent = weekdays[parseInt(day)];
+            }
+          });
+        }
+
+        updateUI();
+        // Replace sync listener with full i18next listener
+        window.removeEventListener("langchange", syncUpdateUI);
+        window.addEventListener("langchange", updateUI);
+        window.__i18n_update = updateUI;
+      });
+    </script>
+
+    <script>
+      document.getElementById("mobile-menu-btn")?.addEventListener("click", () => {
+        document.getElementById("mobile-drawer")?.classList.remove("translate-x-full");
+        document.getElementById("mobile-drawer-overlay")?.classList.remove("hidden");
+      });
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  .nav-link {
+    display: inline-flex; align-items: center;
+    padding: 0.4rem 0.85rem; border-radius: var(--radius-sm);
+    font-size: 0.9rem; font-weight: 500;
+    color: var(--color-text-secondary); text-decoration: none;
+    transition: all 0.2s ease; min-height: 40px;
+  }
+  .nav-link:hover, .nav-link[aria-current="page"] {
+    color: var(--color-primary); background: var(--color-primary-light);
+  }
+
+  .nav-btn-primary {
+    display: inline-flex; align-items: center;
+    padding: 0.4rem 1.1rem; border-radius: var(--radius-full);
+    font-size: 0.875rem; font-weight: 600;
+    color: #fff !important; text-decoration: none;
+    background: var(--gradient-primary);
+    transition: all 0.25s ease; min-height: 38px;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  }
+  .nav-btn-primary:hover {
+    box-shadow: 0 4px 16px rgba(99,102,241,0.45);
+    transform: translateY(-1px);
+    opacity: 0.95;
+  }
+
+  .drawer-link {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.85rem 1rem; border-radius: var(--radius-sm);
+    font-size: 1rem; font-weight: 500;
+    color: var(--color-text); text-decoration: none;
+    transition: all 0.2s ease; min-height: 48px;
+  }
+  .drawer-link:hover, .drawer-link:active {
+    background: var(--color-bg-secondary);
+    transform: translateX(2px);
+  }
+
+    .lang-switch-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; min-height: 36px; min-width: 36px;
+      border-radius: var(--radius-sm);
+      font-size: 0.7rem; font-weight: 700;
+      color: var(--color-text-secondary); background: transparent;
+      border: 1px solid var(--color-border);
+      cursor: pointer; transition: all 0.2s ease;
+    }
+    .lang-switch-btn:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+</style>

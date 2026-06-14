@@ -1,0 +1,14 @@
+{
+  "title": "管理后台",
+  "desc": "文章审核、发布管理",
+  "loginTitle": "管理员登录",
+  "loginDesc": "仅管理员可访问后台",
+  "pending": "待审核",
+  "approved": "已发布",
+  "noPending": "没有待审核的文章",
+  "noApproved": "暂无已发布文章",
+  "approve": "通过",
+  "reject": "驳回",
+  "author": "作者",
+  "viewAll": "查看全部"
+}

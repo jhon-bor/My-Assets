@@ -1,0 +1,296 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import ReadingProgress from "../../../../components/ReadingProgress";
+import Backlinks from "../../../../components/Backlinks.astro";
+import StarChain from "../../../../components/StarChain";
+import "../../../../styles/reading.css";
+import { extractFirstImage } from "../../../../utils/images";
+import { getApprovedArticles } from "../../../../lib/db";
+import type { Article } from "../../../../lib/db";
+import { t, langNativeName } from "../../../../i18n/server";
+import { getArticleInLang } from "../../../../lib/article-translate";
+
+const lang = Astro.params.lang as "zh" | "en" | "ja" | "fr" | "es" | "pt" | "de" | "it";
+const L = `/${lang}`;
+const serverLang = lang;
+
+const { slug } = Astro.params;
+const articles = await getApprovedArticles();
+const article = articles.find((a: Article) => a.slug === slug);
+if (!article) return Astro.redirect("/404");
+
+// On-demand translation — translates & caches if not already in DB
+const translated = await getArticleInLang(article, serverLang);
+const title = translated.title;
+const summary = translated.summary;
+const content = translated.content;
+
+// Translation indicator
+const articleSourceLang = (article.sourceLang || "zh") as string;
+const isTranslated = serverLang !== articleSourceLang && !!content && content !== article.content;
+const sourceLangName = langNativeName(articleSourceLang);
+const translationBackend = article.translationBackend || "";
+
+// Server-side i18n helpers
+const _ = (key: string) => t(serverLang, key);
+const fmtDate = (d: Date) => d.toLocaleDateString(serverLang === "zh" ? "zh-CN" : serverLang, { year: "numeric", month: "long", day: "numeric" });
+
+/* ── Markdown renderer ── */
+function renderMarkdown(md: string, lang: string): { html: string; headings: { depth: number; slug: string; text: string }[] } {
+  const headings: { depth: number; slug: string; text: string }[] = [];
+  const codeBlocks: string[] = [];
+  const inlineCodes: string[] = [];
+  const htmlBlocks: string[] = [];
+
+  let html = md;
+
+  // 1. Protect fenced code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, l, code) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre data-lang="${l || 'text'}"><code>${escapeHtml(code.trim())}</code></pre>`);
+    return `%%CODEBLOCK_${idx}%%`;
+  });
+
+  // 2. Protect inline code
+  html = html.replace(/`([^`]+)`/g, (_m, code) => {
+    const idx = inlineCodes.length;
+    inlineCodes.push(`<code>${escapeHtml(code)}</code>`);
+    return `%%INLINECODE_${idx}%%`;
+  });
+
+  // 3. Protect raw HTML tags
+  html = html.replace(/<(video|iframe|img|figure|figcaption|audio|source|embed|object|picture|svg\b)[^>]*\/?>/gi, (tag) => {
+    const idx = htmlBlocks.length;
+    htmlBlocks.push(tag);
+    return `%%HTMLTAG_${idx}%%`;
+  });
+  html = html.replace(/<\/(video|iframe|figure|figcaption|audio|picture|svg)\s*>/gi, (tag) => {
+    const idx = htmlBlocks.length;
+    htmlBlocks.push(tag);
+    return `%%HTMLTAG_${idx}%%`;
+  });
+
+  // 4. Headings
+  html = html.replace(/^(#{1,4})\s+(.+)$/gm, (_m, hashes, text) => {
+    const depth = hashes.length;
+    const hSlug = text.toLowerCase().replace(/[^\w一-鿿]+/g, '-').replace(/^-+|-+$/, '');
+    headings.push({ depth, slug: hSlug, text });
+    return `<h${depth} id="${hSlug}">${text}</h${depth}>`;
+  });
+
+  // 5. Bold & italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // 6. Images
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy" />');
+
+  // 7. Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+  // 8. Wikilinks — use language prefix
+  html = html.replace(/\[\[([^\]|#]+?)(?:#([^\]|]+?))?(?:\|([^\]]+?))?\]\]/g, (_m, target, _heading, alias) => {
+    const t = (target as string).trim();
+    const label = alias ? (alias as string).trim() : t;
+    const s = t.toLowerCase().replace(/[^\w一-鿿]+/g, '-').replace(/^-+|-+$/, '');
+    return `<a href="/${lang}/notes/${s}/" class="wikilink">${label}</a>`;
+  });
+
+  // 9. Callouts
+  html = html.replace(/^>\s*\[!(\w+)\]\s*(.*)$/gm, (_m, type, title) => {
+    const icons: Record<string, string> = { note: '📝', warning: '⚠️', tip: '💡', info: 'ℹ️', danger: '🔥', success: '✅', question: '❓', abstract: '📋', example: '📎', quote: '💬' };
+    return `<div class="callout"><div class="callout-title">${icons[type as string] || '📝'} ${title || type}</div><div class="callout-content">`;
+  });
+  html = html.replace(/<\/div>\n(?!>)/g, '</div></div>');
+
+  // 10. Horizontal rule
+  html = html.replace(/^---$/gm, '<hr />');
+
+  // 11. Paragraphs
+  html = html.replace(/^(?!<[a-z/!%])(.+)$/gm, '<p>$1</p>');
+  html = html.replace(/<p>\s*<\/p>/g, '');
+
+  // 12. Restore
+  codeBlocks.forEach((block, i) => { html = html.replace(`%%CODEBLOCK_${i}%%`, block); });
+  inlineCodes.forEach((code, i) => { html = html.replace(`%%INLINECODE_${i}%%`, code); });
+  htmlBlocks.forEach((tag, i) => { html = html.replace(`%%HTMLTAG_${i}%%`, tag); });
+
+  return { html, headings };
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const { html: renderedContent, headings } = renderMarkdown(content, serverLang);
+const charCount = content.replace(/\s/g, "").length;
+const readingTime = Math.max(1, Math.ceil(charCount / 400));
+const formattedDate = fmtDate(new Date(article.createdAt));
+const heroImage = extractFirstImage(content);
+---
+
+<BaseLayout title={title} description={summary || `阅读笔记：${title}`} lang={lang}>
+  <ReadingProgress client:load />
+
+  {/* Hero banner */}
+  {heroImage && (
+    <div class="hero-banner">
+      <img src={heroImage} alt={title} class="hero-banner-img" />
+      <div class="hero-banner-overlay"></div>
+      <div class="container relative h-full flex items-end">
+        <div class="hero-banner-text">
+          <div class="flex items-center gap-2 flex-wrap mb-3">
+            {article.folder && <span class="hero-badge">{article.folder}</span>}
+            {article.tags.slice(0,3).map((tag: string) => <span class="hero-badge">#{tag}</span>)}
+            <span class="hero-badge" style="background:rgba(16,185,129,0.35)">✓</span>
+          </div>
+          <h1 class="hero-banner-title">{title}</h1>
+          <div class="hero-banner-meta">
+            <time datetime={article.createdAt}>{formattedDate}</time>
+            <span> · {_("note.author")}: {article.authorEmail} · ~{readingTime} {_("note.minutes")}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
+
+  <div class="container py-6 sm:py-10">
+    <a href={`${L}/notes/`} class="inline-flex items-center gap-1 text-sm mb-6 sm:hidden rounded-lg py-2 px-3 -ml-2 transition-colors hover:bg-[var(--color-bg-tertiary)]" style="color: var(--color-text-secondary); min-height: 44px;">
+      ← {_("note.back")}
+    </a>
+
+    {/* Translation indicator — shows if server-translated, hidden if client-side fallback pending */}
+    <div class="translation-indicator" style={isTranslated ? "display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; margin-bottom: 1.25rem; border-radius: var(--radius-lg); background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 0.8rem; color: var(--color-text-secondary);" : "display: none; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; margin-bottom: 1.25rem; border-radius: var(--radius-lg); background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 0.8rem; color: var(--color-text-secondary);"}>
+      <span style="font-size: 1rem;">🌐</span>
+      <span>{_("note.translatedFrom")} <strong style="color: var(--color-text);">{sourceLangName}</strong></span>
+      {translationBackend && <span style="opacity: 0.7;">· {_("note.translationBy")} {translationBackend}</span>}
+      <span style="flex: 1;"></span>
+      <a href={`/${articleSourceLang}/notes/db/${article.slug}/`} style="font-size: 0.75rem; color: var(--color-primary); text-decoration: none; font-weight: 600;" title={_("note.originalText")}>
+        {_("note.originalText")} →
+      </a>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-8 lg:gap-14">
+      <article class="flex-1 min-w-0 max-w-none lg:max-w-[600px]">
+        {!heroImage && (
+          <header class="mb-10">
+            <div class="flex items-center gap-2 flex-wrap mb-4">
+              {article.folder && <span class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary)">📁 {article.folder}</span>}
+              {article.tags.map((tag: string) => <span class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary)">#{tag}</span>)}
+              <span class="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full" style="background: #dcfce7; color: #16a34a">✓ {_("note.approved")}</span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight mb-4" style="color: var(--color-text); letter-spacing: -0.03em;">{title}</h1>
+            <div class="flex flex-wrap items-center gap-3 text-sm" style="color: var(--color-text-muted)">
+              <time datetime={article.createdAt} class="font-medium">{formattedDate}</time>
+              <span>· {_("note.author")}: {article.authorEmail} · ~{readingTime} {_("note.minutes")}</span>
+            </div>
+          </header>
+        )}
+
+        <div class="reading-article" set:html={renderedContent} />
+
+        {/* Star Chain — shows wikilinks between articles */}
+        <StarChain client:load content={article.content} slug={article.slug} lang={serverLang} type="db" authorEmail={article.authorEmail} articleId={article.id} tags={article.tags} />
+
+        {/* Share */}
+        <div class="flex items-center gap-3 mt-10 pt-8 border-t" style="border-color: var(--color-border)">
+          <button onclick={`const b=this;b.textContent='✓ ${_("note.copied")}';setTimeout(()=>b.textContent='🔗 ${_("note.copyLink")}',2000)`} class="inline-flex items-center gap-1.5 rounded-full text-xs font-medium px-4 py-2 transition-all" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary); border: none; cursor: pointer; min-height: 40px;">
+            🔗 {_("note.copyLink")}
+          </button>
+          {/* Edit button for article author */}
+          <a href={`/${serverLang}/publish/?edit=${article.id}`} class="inline-flex items-center gap-1.5 rounded-full text-xs font-medium px-4 py-2 transition-all" style="background: var(--color-primary-light); color: var(--color-primary); text-decoration: none; min-height: 40px;">
+            ✏️ 编辑
+          </a>
+        </div>
+        <div class="flex items-center gap-3 mt-10 pt-8 border-t" style="border-color: var(--color-border)">
+          <button onclick={`const b=this;b.textContent='✓ ${_("note.copied")}';setTimeout(()=>b.textContent='🔗 ${_("note.copyLink")}',2000)`} class="inline-flex items-center gap-1.5 rounded-full text-xs font-medium px-4 py-2 transition-all" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary); border: none; cursor: pointer; min-height: 40px;">
+            🔗 {_("note.copyLink")}
+          </button>
+        </div>
+      </article>
+
+      {/* Desktop TOC */}
+      <aside class="hidden lg:block lg:w-40 flex-shrink-0">
+        <div class="sticky" style="top: 120px;">
+          <h4 class="text-xs font-bold uppercase tracking-widest mb-4" style="color: var(--color-text-muted)">📑 {_("note.toc")}</h4>
+          {headings.length > 1 ? (
+            <nav class="space-y-0.5 max-h-[65vh] overflow-y-auto">
+              {headings.map((h) => (
+                <a href={`#${h.slug}`} class="block rounded-lg py-2 px-3 text-sm transition-all hover:bg-[var(--color-bg-secondary)]" style={{ paddingLeft: `${(h.depth - 1) * 10 + 10}px`, color: h.depth <= 2 ? "var(--color-text)" : "var(--color-text-secondary)", textDecoration: "none", minHeight: 34, fontSize: "0.8rem", borderLeft: "2px solid transparent" }}>
+                  {h.text}
+                </a>
+              ))}
+            </nav>
+          ) : (
+            <p class="text-xs" style="color: var(--color-text-muted)">{_("note.noToc")}</p>
+          )}
+        </div>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .hero-banner { position: relative; width: 100vw; margin-left: calc(50% - 50vw); min-height: 300px; max-height: 500px; overflow: hidden; background: var(--color-bg-secondary); }
+  @media (min-width: 768px) { .hero-banner { min-height: 380px; } }
+  .hero-banner-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .hero-banner-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.1) 70%, rgba(0,0,0,0.05) 100%); pointer-events: none; }
+  .hero-banner-text { position: relative; padding: 3rem 0 2rem; color: #fff; max-width: 700px; }
+  .hero-banner-title { font-size: clamp(1.4rem, 5vw, 2.4rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; margin-bottom: 0.6rem; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  .hero-banner-meta { font-size: 0.9rem; color: rgba(255,255,255,0.85); font-weight: 500; }
+  .hero-badge { display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 600; padding: 0.25rem 0.65rem; border-radius: var(--radius-full); background: rgba(255,255,255,0.18); color: #fff; backdrop-filter: blur(6px); }
+</style>
+
+{/* Client-side translation fallback: if server translation failed, use browser's Google Translate */}
+{!isTranslated && serverLang !== articleSourceLang ? (
+  <script is:inline>
+    (function() {
+      var targetLang = "{serverLang}";
+      var sourceLang = "{articleSourceLang}";
+      var langMap = { zh: "zh-CN", en: "en", ja: "ja", fr: "fr", es: "es", pt: "pt", de: "de", it: "it" };
+      var sl = langMap[sourceLang] || "auto";
+      var tl = langMap[targetLang] || targetLang;
+
+      async function googleTranslate(text) {
+        try {
+          var url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" + sl + "&tl=" + tl + "&dt=t&q=" + encodeURIComponent(text);
+          var res = await fetch(url);
+          if (!res.ok) return null;
+          var data = await res.json();
+          var sentences = data[0] || [];
+          return sentences.map(function(s) { return s[0] || ""; }).join("") || null;
+        } catch(e) { return null; }
+      }
+
+      (async function() {
+        try {
+          // Translate title
+          var h1 = document.querySelector('h1');
+          if (h1) {
+            var t = await googleTranslate(h1.textContent.trim());
+            if (t) h1.textContent = t;
+          }
+
+          // Translate content paragraphs
+          var article = document.querySelector('.reading-article');
+          if (article) {
+            var paras = article.querySelectorAll('p, h2, h3, h4, li');
+            for (var i = 0; i < paras.length; i++) {
+              var orig = paras[i].textContent.trim();
+              if (orig.length > 3) {
+                var t = await googleTranslate(orig);
+                if (t) paras[i].textContent = t;
+              }
+            }
+          }
+
+          // Show translation indicator
+          var indicator = document.querySelector('.translation-indicator');
+          if (indicator) indicator.style.display = 'flex';
+        } catch(e) {}
+      })();
+    })();
+  </script>
+) : null}

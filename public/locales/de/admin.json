@@ -1,0 +1,14 @@
+{
+  "title": "Admin-Dashboard",
+  "desc": "Artikelprüfung & -verwaltung",
+  "loginTitle": "Admin-Login",
+  "loginDesc": "Nur Admin-Zugang",
+  "pending": "Ausstehend",
+  "approved": "Genehmigt",
+  "noPending": "Keine ausstehenden Artikel",
+  "noApproved": "Keine genehmigten Artikel",
+  "approve": "Genehmigen",
+  "reject": "Ablehnen",
+  "author": "Autor",
+  "viewAll": "Alle anzeigen"
+}

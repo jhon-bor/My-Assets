@@ -1,0 +1,112 @@
+---
+export interface FolderItem {
+  slug: string;
+  title_zh: string;
+  title_en?: string;
+  title_ja?: string;
+  title_fr?: string;
+  title_es?: string;
+  title_pt?: string;
+  title_de?: string;
+  title_it?: string;
+}
+
+interface Props {
+  folders: Record<string, FolderItem[]>;
+  currentSlug?: string;
+  /** Language prefix for internal links (e.g. "zh", "en") */
+  lang?: string;
+}
+
+const { folders, currentSlug, lang = "zh" } = Astro.props;
+const folderNames = Object.keys(folders).sort();
+---
+
+<nav class="folder-tree" aria-label="文件夹导航">
+  <ul class="space-y-0.5">
+    {folderNames.length === 0 && (
+      <li style="color: var(--color-text-muted); padding: 0.5rem 0.75rem; font-size: 0.85rem;">暂无文件夹</li>
+    )}
+    {folderNames.map((name) => (
+      <li>
+        <details class="folder-group" open>
+          <summary class="folder-summary">
+            <svg class="folder-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            <span class="flex items-center gap-1.5 folder-name-label" data-folder-name={name}>📁 {name}</span>
+            <span class="folder-count">{folders[name].length}</span>
+          </summary>
+          <ul class="folder-sublist">
+            {folders[name].map((item) => (
+              <li>
+                <a
+                  href={`/${lang}/notes/${item.slug}/`}
+                  class={`folder-link ${currentSlug === item.slug ? "active" : ""}`}
+                  aria-current={currentSlug === item.slug ? "page" : undefined}
+                >
+                  <span class="folder-link-dot" aria-hidden="true"></span>
+                  <span
+                    class="note-title"
+                    data-title-zh={item.title_zh}
+                    data-title-en={item.title_en}
+                    data-title-ja={item.title_ja}
+                    data-title-fr={item.title_fr}
+                    data-title-es={item.title_es}
+                    data-title-pt={item.title_pt}
+                    data-title-de={item.title_de}
+                    data-title-it={item.title_it}
+                  >{item.title_zh}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      </li>
+    ))}
+  </ul>
+</nav>
+
+<style>
+  .folder-summary {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.55rem 0.65rem; border-radius: var(--radius-sm);
+    font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    color: var(--color-text); transition: all 0.15s ease;
+    min-height: 40px; user-select: none;
+    list-style: none;
+  }
+  .folder-summary::-webkit-details-marker { display: none; }
+  .folder-summary:hover { background: var(--color-bg-secondary); }
+
+  .folder-chevron {
+    transition: transform 0.2s ease; flex-shrink: 0; opacity: 0.5;
+  }
+  .folder-group[open] > .folder-summary .folder-chevron { transform: rotate(90deg); }
+
+  .folder-count {
+    margin-left: auto; font-size: 0.7rem; font-weight: 600;
+    color: var(--color-text-muted); min-width: 18px; text-align: center;
+  }
+
+  .folder-sublist {
+    padding-left: 1.3rem; margin-top: 2px; space-y: 1px;
+  }
+
+  .folder-link {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.45rem 0.65rem; border-radius: var(--radius-sm);
+    font-size: 0.575rem; font-weight: 500; text-decoration: none;
+    color: var(--color-text-secondary); transition: all 0.15s ease;
+  }
+  .folder-link:hover { color: var(--color-text); background: var(--color-bg-secondary); }
+  .folder-link.active {
+    color: var(--color-primary); background: var(--color-primary-light); font-weight: 600;
+  }
+
+  .folder-link-dot {
+    width: 4px; height: 4px; border-radius: 50%; background: var(--color-text-muted);
+    flex-shrink: 0; opacity: 0.4;
+  }
+  .folder-link.active .folder-link-dot { background: var(--color-primary); opacity: 1; }
+</style>

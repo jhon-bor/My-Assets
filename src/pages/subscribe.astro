@@ -1,0 +1,244 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SubscribeForm from "../components/SubscribeForm";
+
+const benefits_zh = [
+  { icon: "📬", title: "邮件通知", desc: "新笔记发布后第一时间推送到你的邮箱" },
+  { icon: "📥", title: "附件下载", desc: "获取付费笔记的附件、模板、源文件" },
+  { icon: "⭐", title: "精选内容", desc: "独家深度长文，会员专属阅读" },
+  { icon: "🔍", title: "无广告", desc: "清爽阅读，永远没有广告打扰" },
+];
+
+const benefits_en = [
+  { icon: "📬", title: "Email Notifications", desc: "Get notified as soon as new notes are published" },
+  { icon: "📥", title: "Downloads", desc: "Access attachments, templates, and source files" },
+  { icon: "⭐", title: "Premium Content", desc: "Exclusive in-depth articles for members" },
+  { icon: "🔍", title: "Ad-Free", desc: "Clean reading experience, no ads ever" },
+];
+
+const updates_zh = [
+  { id: "1", title: "第一期更新 — Obsidian 双向链接教程", date: "2026-06-10", summary: "详解 Obsidian 双向链接的用法与最佳实践。", noteSlug: "obsidian-bidirectional-links" },
+  { id: "2", title: "新笔记：移动端适配指南", date: "2026-06-08", summary: "如何让你的网页在手机浏览器里媲美原生APP。", noteSlug: "mobile-first-guide" },
+];
+
+const updates_en = [
+  { id: "1", title: "Issue #1 — Obsidian Bidirectional Links Tutorial", date: "2026-06-10", summary: "Master Obsidian bidirectional links — usage and best practices.", noteSlug: "obsidian-bidirectional-links" },
+  { id: "2", title: "New: Mobile-First Responsive Design Guide", date: "2026-06-08", summary: "Make your web pages feel like native apps on mobile browsers.", noteSlug: "mobile-first-guide" },
+];
+---
+
+<BaseLayout
+  title="订阅更新"
+  description="免费订阅，第一时间获取新笔记推送和下载权限。"
+>
+  <div class="container py-8 sm:py-12">
+    {/* Header */}
+    <div class="text-center mb-10 sm:mb-14">
+      <span class="text-5xl block mb-4">✨</span>
+      <h1 class="text-2xl sm:text-3xl font-extrabold mb-3" data-i="subscribe.title">订阅更新</h1>
+      <p class="text-lg max-w-md mx-auto leading-relaxed" style="color: var(--color-text-secondary)" data-i="subscribe.desc">
+        免费订阅，第一时间收到新笔记推送。
+      </p>
+    </div>
+
+    <div class="max-w-lg mx-auto space-y-10">
+      {/* Form */}
+      <section class="rounded-2xl p-6 sm:p-8" style="background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm)">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2" data-i="subscribe.formTitle">
+          📬 <span data-i="subscribe.formTitle">输入邮箱，免费订阅</span>
+        </h2>
+        <SubscribeForm client:load />
+        <p class="text-xs mt-4" style="color: var(--color-text-muted); line-height: 1.6" data-i="subscribe.privacy">
+          不发送垃圾邮件，随时可退订。你的邮箱仅用于更新通知。
+        </p>
+      </section>
+
+      {/* Benefits */}
+      <section>
+        <h2 class="text-lg font-bold mb-4" data-i="subscribe.benefits">
+          🎁 <span data-i="subscribe.benefits">订阅权益</span>
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="benefits-grid">
+          {benefits_zh.map((b, i) => (
+            <div class="benefit-card" data-benefit-idx={i}>
+              <span class="text-2xl block mb-2">{b.icon}</span>
+              <h3 class="font-semibold mb-1 benefit-title" style="color: var(--color-text); font-size: 0.95rem">{b.title}</h3>
+              <p class="text-sm m-0 leading-relaxed benefit-desc" style="color: var(--color-text-secondary)">{b.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Updates */}
+      <section>
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2" data-i="subscribe.updates">
+          🔔 <span data-i="subscribe.updates">最近更新</span>
+          <span id="updates-badge" class="inline-flex items-center justify-center rounded-full text-xs font-bold px-2 py-0.5" style="background: #ef4444; color: #fff; min-width: 20px; height: 20px;">
+            {updates_zh.length}
+          </span>
+        </h2>
+        <div class="space-y-3" id="updates-list">
+          {updates_zh.length === 0 ? (
+            <p class="text-sm" style="color: var(--color-text-muted)" data-i="subscribe.noUpdates">
+              <span data-i="subscribe.noUpdates">暂无更新记录</span>
+            </p>
+          ) : (
+            updates_zh.map((u, i) => (
+              <div class="update-card" data-update-idx={i}>
+                <div class="flex items-start justify-between gap-4">
+                  <div class="flex-1 min-w-0">
+                    {u.noteSlug ? (
+                      <a href={`/notes/${u.noteSlug}/`} class="font-semibold text-sm sm:text-base transition-colors update-title" style="color: var(--color-text); text-decoration: none;">
+                        {u.title}
+                      </a>
+                    ) : (
+                      <h3 class="font-semibold text-sm sm:text-base update-title" style="color: var(--color-text)">{u.title}</h3>
+                    )}
+                    <p class="text-sm mt-1 line-clamp-2 update-summary" style="color: var(--color-text-secondary)">{u.summary}</p>
+                  </div>
+                  <time datetime={u.date} class="text-xs flex-shrink-0 font-medium" style="color: var(--color-text-muted)">{u.date}</time>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .benefit-card {
+    padding: 1.25rem; border-radius: var(--radius-lg);
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-xs); transition: all 0.3s ease;
+  }
+  .benefit-card:hover {
+    box-shadow: var(--shadow-md); border-color: var(--color-primary-soft);
+    transform: translateY(-2px);
+  }
+
+  .update-card {
+    padding: 1rem 1.25rem; border-radius: var(--radius-lg);
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-xs); transition: all 0.3s ease;
+  }
+  .update-card:hover {
+    box-shadow: var(--shadow-sm); border-color: var(--color-border);
+  }
+</style>
+
+<script>
+  // All 8 language data for subscribe page
+  var BENEFITS = {
+    zh: [
+      { title: "邮件通知", desc: "新笔记发布后第一时间推送到你的邮箱" },
+      { title: "附件下载", desc: "获取付费笔记的附件、模板、源文件" },
+      { title: "精选内容", desc: "独家深度长文，会员专属阅读" },
+      { title: "无广告", desc: "清爽阅读，永远没有广告打扰" },
+    ],
+    en: [
+      { title: "Email Notifications", desc: "Get notified as soon as new notes are published" },
+      { title: "Downloads", desc: "Access attachments, templates, and source files" },
+      { title: "Premium Content", desc: "Exclusive in-depth articles for members" },
+      { title: "Ad-Free", desc: "Clean reading experience, no ads ever" },
+    ],
+    ja: [
+      { title: "メール通知", desc: "新ノート公開後すぐメールでお知らせ" },
+      { title: "ダウンロード", desc: "有料ノートの添付・テンプレート・源ファイルにアクセス" },
+      { title: "厳選コンテンツ", desc: "会員専用の深い長文" },
+      { title: "広告なし", desc: "清爽な読書体験、広告は一切なし" },
+    ],
+    fr: [
+      { title: "Notifications email", desc: "Soyez notifié dès la publication de nouvelles notes" },
+      { title: "Téléchargements", desc: "Accédez aux pièces jointes, modèles et fichiers source" },
+      { title: "Contenu Premium", desc: "Articles approfondis exclusifs pour les membres" },
+      { title: "Sans pub", desc: "Lecture propre, jamais de pubs" },
+    ],
+    es: [
+      { title: "Notificaciones por email", desc: "Recibe notificaciones al instante cuando se publiquen nuevas notas" },
+      { title: "Descargas", desc: "Accede a archivos, plantillas y fuentes" },
+      { title: "Contenido Premium", desc: "Artículos profundos exclusivos para miembros" },
+      { title: "Sin anuncios", desc: "Lectura limpia, nunca anuncios" },
+    ],
+    pt: [
+      { title: "Notificações por email", desc: "Seja notificado assim que novas notas forem publicadas" },
+      { title: "Downloads", desc: "Acesse anexos, modelos e arquivos fonte" },
+      { title: "Conteúdo Premium", desc: "Artigos aprofundados exclusivos para membros" },
+      { title: "Sem anúncios", desc: "Leitura limpa, nunca anúncios" },
+    ],
+    de: [
+      { title: "E-Mail-Benachrichtigungen", desc: "Werden Sie benachrichtigt, sobald neue Notizen veröffentlicht werden" },
+      { title: "Downloads", desc: "Zugang zu Anhängen, Vorlagen und Quelldateien" },
+      { title: "Premium-Inhalt", desc: "Exklusive tiefe Artikel für Mitglieder" },
+      { title: "Keine Werbung", desc: "Sauberes Leseerlebnis, niemals Werbung" },
+    ],
+    it: [
+      { title: "Notifiche email", desc: "Ricevi una notifica non appena vengono pubblicate nuove note" },
+      { title: "Download", desc: "Accedi a allegati, modelli e file sorgente" },
+      { title: "Contenuto Premium", desc: "Articoli approfonditi esclusivi per i membri" },
+      { title: "Nessuna pubblicità", desc: "Esperienza di lettura pulita, mai pubblicità" },
+    ],
+  };
+  var UPDATES = {
+    zh: [
+      { title: "第一期更新 — Obsidian 双向链接教程", summary: "详解 Obsidian 双向链接的用法与最佳实践。", date: "2026-06-10" },
+      { title: "新笔记：移动端适配指南", summary: "如何让你的网页在手机浏览器里媲美原生APP。", date: "2026-06-08" },
+    ],
+    en: [
+      { title: "Issue #1 — Obsidian Bidirectional Links Tutorial", summary: "Master Obsidian bidirectional links — usage and best practices.", date: "2026-06-10" },
+      { title: "New: Mobile-First Responsive Design Guide", summary: "Make your web pages feel like native apps on mobile browsers.", date: "2026-06-08" },
+    ],
+    ja: [
+      { title: "第1回 — Obsidian 双方向リンク教程", summary: "Obsidian双方向リンクの用法とベストプラクティスを解説。", date: "2026-06-10" },
+      { title: "新ノート：モバイルファーストResponsive Design", summary: "モバイルブラウザでネイティブAPPのような体験を提供する方法。", date: "2026-06-08" },
+    ],
+    fr: [
+      { title: "Numéro 1 — Tutoriel Liens Bidirectionnels Obsidian", summary: "Maîtrisez les liens bidirectionnels Obsidian — usage et bonnes pratiques.", date: "2026-06-10" },
+      { title: "Nouveau : Guide Mobile-First Responsive Design", summary: "Faites en sorte que vos pages web soient comme des apps natives sur mobile.", date: "2026-06-08" },
+    ],
+    es: [
+      { title: "Episodio #1 — Tutorial de Enlaces Bidireccionales de Obsidian", summary: "Domina los enlaces bidireccionales de Obsidian — uso y mejores prácticas.", date: "2026-06-10" },
+      { title: "Nuevo: Guía Mobile-First Responsive Design", summary: "Haz que tus páginas web se sientan como apps nativas en móviles.", date: "2026-06-08" },
+    ],
+    pt: [
+      { title: "Edição #1 — Tutorial de Links Bidirecionais do Obsidian", summary: "Domine os links bidirecionais do Obsidian — uso e melhores práticas.", date: "2026-06-10" },
+      { title: "Novo: Guia Mobile-First Responsive Design", summary: "Faça suas páginas web se sentirem como apps nativos em dispositivos móveis.", date: "2026-06-08" },
+    ],
+    de: [
+      { title: "Ausgabe #1 — Obsidian Bidirektionale Links Tutorial", summary: "Meistern Sie Obsidian bidirektionale Links — Verwendung und Best Practices.", date: "2026-06-10" },
+      { title: "Neu: Mobile-First Responsive Design Leitfaden", summary: "Machen Sie Ihre Webseiten wie native Apps auf Mobilgeräten.", date: "2026-06-08" },
+    ],
+    it: [
+      { title: "Puntata #1 — Tutorial Link Bidirezionali Obsidian", summary: "Domina i link bidirezionali di Obsidian — uso e best practice.", date: "2026-06-10" },
+      { title: "Nuovo: Guida Mobile-First Responsive Design", summary: "Fai in modo che le tue pagine web si sentano come app native sui dispositivi mobili.", date: "2026-06-08" },
+    ],
+  };
+
+  function updateSubscribePage() {
+    var lang = localStorage.getItem("lookfinde_lang") || "zh";
+    var benefits = BENEFITS[lang] || BENEFITS.zh;
+    var updates = UPDATES[lang] || UPDATES.zh;
+
+    document.querySelectorAll("[data-benefit-idx]").forEach(function(card: any) {
+      var idx = parseInt(card.getAttribute("data-benefit-idx"));
+      var b = benefits[idx];
+      if (b) {
+        card.querySelectorAll(".benefit-title").forEach(function(el: any) { el.textContent = b.title; });
+        card.querySelectorAll(".benefit-desc").forEach(function(el: any) { el.textContent = b.desc; });
+      }
+    });
+
+    document.querySelectorAll("[data-update-idx]").forEach(function(card: any) {
+      var idx = parseInt(card.getAttribute("data-update-idx"));
+      var u = updates[idx];
+      if (u) {
+        card.querySelectorAll(".update-title").forEach(function(el: any) { el.textContent = u.title; });
+        card.querySelectorAll(".update-summary").forEach(function(el: any) { el.textContent = u.summary; });
+      }
+    });
+  }
+
+  updateSubscribePage();
+  window.addEventListener("langchange", updateSubscribePage);
+</script>

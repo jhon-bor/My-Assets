@@ -1,0 +1,14 @@
+{
+  "title": "Panel de administración",
+  "desc": "Revisión y gestión de artículos",
+  "loginTitle": "Login admin",
+  "loginDesc": "Solo acceso admin",
+  "pending": "Pendiente",
+  "approved": "Aprobado",
+  "noPending": "Sin artículos pendientes",
+  "noApproved": "Sin artículos aprobados",
+  "approve": "Aprobar",
+  "reject": "Rechazar",
+  "author": "Autor",
+  "viewAll": "Ver todo"
+}

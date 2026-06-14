@@ -1,0 +1,269 @@
+/* ===========================================
+   Premium Reading Experience — Shared Styles
+   =========================================== */
+
+/* ── Reading container ── */
+.reading-article {
+  font-size: 1.125rem;
+  line-height: 1.85;
+  color: var(--color-text);
+  letter-spacing: 0.004em;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ── Headings ── */
+.reading-article h1,
+.reading-article h2,
+.reading-article h3,
+.reading-article h4 {
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  scroll-margin-top: 5rem;
+  position: relative;
+}
+
+.reading-article h1 { font-size: 2rem; margin: 2.5em 0 0.6em; }
+.reading-article h2 {
+  font-size: 1.5rem;
+  margin: 2.2em 0 0.6em;
+  padding-bottom: 0.35em;
+  border-bottom: 2px solid var(--color-border);
+}
+.reading-article h3 { font-size: 1.25rem; margin: 1.8em 0 0.5em; }
+.reading-article h4 { font-size: 1.1rem; margin: 1.5em 0 0.4em; }
+
+/* First heading after intro should have less top margin */
+.reading-article h2:first-of-type { margin-top: 1.5em; }
+
+/* ── Paragraphs ── */
+.reading-article p {
+  margin-bottom: 1.35em;
+  color: var(--color-text-secondary);
+}
+
+/* ── Links ── */
+.reading-article a {
+  color: var(--color-primary);
+  text-decoration: none;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1.5px no-repeat;
+  transition: background-size 0.3s ease;
+  padding-bottom: 1px;
+}
+.reading-article a:hover {
+  background-size: 100% 1.5px;
+}
+
+/* External link indicator */
+.reading-article a[href^="http"]::after {
+  content: " ↗";
+  font-size: 0.7em;
+  opacity: 0.6;
+}
+
+/* Wikilinks */
+.reading-article a.wikilink {
+  color: var(--color-primary);
+  background: linear-gradient(var(--color-primary), var(--color-primary)) 0 100% / 100% 1px no-repeat;
+  background-position: 0 calc(100% - 1px);
+  background-size: 100% 1px;
+  padding-bottom: 2px;
+  text-decoration: none !important;
+}
+
+/* ── Blockquotes ── */
+.reading-article blockquote {
+  margin: 2em 0;
+  padding: 1.25rem 1.5rem;
+  border-left: 4px solid var(--color-primary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+.reading-article blockquote p {
+  margin-bottom: 0.5em;
+}
+.reading-article blockquote p:last-child { margin-bottom: 0; }
+
+/* ── Code ── */
+.reading-article code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0.2em 0.45em;
+  border-radius: 0.3rem;
+  background: var(--color-code-bg);
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+/* ── Code blocks ── */
+.reading-article pre {
+  position: relative;
+  margin: 2em 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-code-bg);
+}
+
+.reading-article pre::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.3em 0.8em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  border-radius: 0 var(--radius-lg) 0 var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 2;
+}
+
+.reading-article pre code {
+  display: block;
+  padding: 1.35rem 1.5rem;
+  background: transparent;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  color: var(--color-text);
+  border-radius: 0;
+}
+
+/* Shiki overrides */
+.reading-article pre code .line {
+  display: block;
+  min-height: 1.75em;
+}
+
+/* ── Tables ── */
+.reading-article table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2em 0;
+  font-size: 0.9375rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.reading-article thead {
+  background: var(--color-bg-tertiary);
+}
+
+.reading-article th {
+  padding: 0.85rem 1.1rem;
+  font-weight: 700;
+  text-align: left;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.reading-article td {
+  padding: 0.75rem 1.1rem;
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+}
+
+.reading-article tr:last-child td { border-bottom: none; }
+.reading-article tbody tr:hover { background: var(--color-bg-secondary); }
+
+/* ── Images ── */
+.reading-article img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+  margin: 2em 0;
+  display: block;
+  box-shadow: var(--shadow-sm);
+  cursor: zoom-in;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.reading-article img:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Lists ── */
+.reading-article ul,
+.reading-article ol {
+  padding-left: 1.6em;
+  margin-bottom: 1.35em;
+}
+
+.reading-article li {
+  margin-bottom: 0.45em;
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+}
+
+.reading-article li::marker {
+  color: var(--color-text-muted);
+}
+
+.reading-article ul li::marker { content: "— "; }
+
+/* ── Horizontal rule ── */
+.reading-article hr {
+  margin: 3em 0;
+  border: none;
+  text-align: center;
+}
+.reading-article hr::after {
+  content: "· · ·";
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+  letter-spacing: 0.6em;
+}
+
+/* ── Callouts ── */
+.reading-article .callout {
+  margin: 2em 0;
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  border-left: 4px solid var(--color-primary);
+  background: var(--color-bg-secondary);
+}
+
+.reading-article .callout-title {
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.reading-article .callout-content {
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+/* ── Strong / emphasis ── */
+.reading-article strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .reading-article { font-size: 1.05rem; }
+  .reading-article h1 { font-size: 1.6rem; }
+  .reading-article h2 { font-size: 1.3rem; }
+  .reading-article h3 { font-size: 1.15rem; }
+  .reading-article pre code { font-size: 0.8rem; padding: 1rem; }
+}
+
+/* ── Print ── */
+@media print {
+  .reading-article { font-size: 12pt; line-height: 1.6; color: #000; }
+  .reading-article a { color: #000; text-decoration: underline; }
+  .reading-article pre { border: 1px solid #ccc; background: #f9f9f9; }
+}

@@ -1,0 +1,259 @@
+---
+import { extractFirstImage } from "../utils/images";
+
+export interface Props {
+  title_zh: string;
+  title_en?: string;
+  title_ja?: string;
+  title_fr?: string;
+  title_es?: string;
+  title_pt?: string;
+  title_de?: string;
+  title_it?: string;
+  slug: string;
+  date: string;
+  tags?: string[];
+  summary_zh?: string;
+  summary_en?: string;
+  summary_ja?: string;
+  summary_fr?: string;
+  summary_es?: string;
+  summary_pt?: string;
+  summary_de?: string;
+  summary_it?: string;
+  folder?: string;
+  featured?: boolean;
+  body_zh?: string;
+  /** Language prefix for internal links (e.g. "zh", "en", "ja") */
+  lang?: string;
+}
+
+const {
+  title_zh,
+  title_en,
+  title_ja,
+  title_fr,
+  title_es,
+  title_pt,
+  title_de,
+  title_it,
+  slug,
+  date,
+  tags = [],
+  summary_zh,
+  summary_en,
+  summary_ja,
+  summary_fr,
+  summary_es,
+  summary_pt,
+  summary_de,
+  summary_it,
+  folder,
+  featured = false,
+  body_zh,
+  lang = "zh",
+} = Astro.props;
+
+const dateLocale = lang === "zh" ? "zh-CN" : lang;
+const formattedDate = new Date(date).toLocaleDateString(dateLocale, {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+
+const imageUrl = body_zh ? extractFirstImage(body_zh) : null;
+
+// All titles for language switching — fall back directly to zh (original) when no translation
+const titlesJson = JSON.stringify({ zh: title_zh, en: title_en || title_zh, ja: title_ja || title_zh, fr: title_fr || title_zh, es: title_es || title_zh, pt: title_pt || title_zh, de: title_de || title_zh, it: title_it || title_zh });
+const summariesJson = JSON.stringify({ zh: summary_zh, en: summary_en || summary_zh, ja: summary_ja || summary_zh, fr: summary_fr || summary_zh, es: summary_es || summary_zh, pt: summary_pt || summary_zh, de: summary_de || summary_zh, it: summary_it || summary_zh });
+---
+
+<a
+  href={`/${lang}/notes/${slug}/`}
+  class="note-card group block"
+  style="text-decoration: none; color: inherit"
+  data-titles={titlesJson}
+  data-summaries={summariesJson}
+>
+  <article class="note-card-inner">
+    {imageUrl ? (
+      <div class="note-card-img-wrap">
+        <img src={imageUrl} alt={title_zh} loading="lazy" class="note-card-img" onerror="this.style.display='none';this.parentElement.style.display='none'" />
+        <div class="note-card-overlay"></div>
+        {featured && <span class="note-card-featured" data-i18n="section.featured"><span data-i18n="section.featured">精选</span></span>}
+        <div class="note-card-text-overlay">
+          <div class="flex items-center gap-1.5 flex-wrap mb-2">
+            {folder && <span class="overlay-badge" data-folder-name={folder}>📁 {folder}</span>}
+            {tags.slice(0, 3).map((tag) => <span class="overlay-badge">#{tag}</span>)}
+          </div>
+          <h3 class="overlay-title card-title">{title_zh}</h3>
+          <div class="overlay-meta">
+            <time datetime={date}>{formattedDate}</time>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div class="note-card-plain">
+        {featured && (
+          <span class="badge-featured" data-i18n="section.featured">
+            <span data-i18n="section.featured">精选</span>
+          </span>
+        )}
+        <div class="flex items-center gap-1.5 flex-wrap mb-2">
+          {folder && <span class="badge-sm" data-folder-name={folder}>📁 {folder}</span>}
+          {tags.slice(0, 3).map((tag) => <span class="badge-sm">#{tag}</span>)}
+        </div>
+        <h3 class="plain-title card-title">{title_zh}</h3>
+        {(summary_zh || summary_en) && (
+          <p class="plain-summary line-clamp-2 card-summary">{summary_zh || summary_en}</p>
+        )}
+        <div class="flex items-center justify-between mt-auto">
+          <time datetime={date} class="plain-date">{formattedDate}</time>
+          <span class="plain-arrow">→</span>
+        </div>
+      </div>
+    )}
+  </article>
+</a>
+
+<style>
+  .note-card-inner {
+    border-radius: var(--radius-xl);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-card);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+  }
+  .note-card:hover .note-card-inner {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--color-primary-soft);
+    transform: translateY(-3px);
+  }
+
+  .note-card-img-wrap {
+    position: relative; aspect-ratio: 2 / 1;
+    overflow: hidden; background: var(--color-bg-secondary);
+  }
+  .note-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+  .note-card:hover .note-card-img { transform: scale(1.06); }
+
+  .note-card-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0) 100%);
+    pointer-events: none;
+  }
+
+  .note-card-featured {
+    position: absolute; top: 0.75rem; left: 0.75rem;
+    font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: var(--radius-full);
+    background: var(--gradient-primary); color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3); z-index: 2;
+  }
+
+  .note-card-text-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 1.25rem; color: #fff; z-index: 1;
+  }
+
+  .overlay-badge {
+    display: inline-flex; align-items: center; font-size: 0.68rem; font-weight: 600;
+    padding: 0.2rem 0.55rem; border-radius: var(--radius-full);
+    background: rgba(255,255,255,0.2); backdrop-filter: blur(6px); color: #fff; line-height: 1.4;
+  }
+
+  .overlay-title {
+    font-size: 1.1rem; font-weight: 750; line-height: 1.3; margin-bottom: 0.35rem;
+    color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  .overlay-meta { font-size: 0.75rem; color: rgba(255,255,255,0.8); font-weight: 500; }
+
+  .note-card-plain { padding: 1.25rem 1.4rem; display: flex; flex-direction: column; }
+  .badge-featured {
+    display: inline-flex; align-items: center; align-self: flex-start;
+    font-size: 0.7rem; font-weight: 700; margin-bottom: 0.5rem;
+    padding: 0.2rem 0.6rem; border-radius: var(--radius-full);
+    background: var(--gradient-primary); color: #fff;
+  }
+  .badge-sm {
+    display: inline-flex; align-items: center; font-size: 0.7rem; font-weight: 500;
+    padding: 0.15rem 0.5rem; border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary); color: var(--color-text-secondary);
+  }
+  .plain-title {
+    font-size: 1.05rem; font-weight: 750; line-height: 1.35; margin-bottom: 0.4rem;
+    color: var(--color-text); transition: color 0.2s ease;
+  }
+  .note-card:hover .plain-title { color: var(--color-primary); }
+  .plain-summary { color: var(--color-text-secondary); font-size: 0.875rem; line-height: 1.6; margin-bottom: 0.75rem; }
+  .plain-date { font-size: 0.75rem; font-weight: 500; color: var(--color-text-muted); }
+  .plain-arrow {
+    font-size: 0.85rem; color: var(--color-text-muted); transition: all 0.3s ease;
+    opacity: 0; transform: translateX(-4px);
+  }
+  .note-card:hover .plain-arrow { opacity: 1; transform: translateX(0); color: var(--color-primary); }
+</style>
+
+<script>
+  function getUrlLang() {
+    var m = window.location.pathname.match(/^\/([a-z]{2})\//);
+    if (m) return m[1];
+    return null;
+  }
+
+  // Translate via server API (Cloudflare) — works even if Google is blocked
+  async function translateViaServer(text, from, to) {
+    if (from === to || !text || text.length < 2) return text;
+    try {
+      var res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text, from: from, to: to })
+      });
+      var data = await res.json();
+      return data.success ? data.text : text;
+    } catch(e) { return text; }
+  }
+
+  function updateCardTexts() {
+    var urlLang = getUrlLang();
+    var lang = urlLang || localStorage.getItem("lookfinde_lang") || "zh";
+    document.querySelectorAll(".note-card").forEach(function(card) {
+      try {
+        var titles = JSON.parse(card.getAttribute("data-titles") || "{}");
+        var summaries = JSON.parse(card.getAttribute("data-summaries") || "{}");
+        var title = titles[lang] || titles.zh || "";
+        var summary = summaries[lang] || summaries.zh || "";
+
+        // If the title for this language is the same as English, it's a fallback with no real translation
+        // Try client-side Google Translate
+        var isFallback = (lang !== "zh" && lang !== "en") && (title === titles.zh);
+
+        card.querySelectorAll(".card-title").forEach(function(el) { el.textContent = title; });
+        card.querySelectorAll(".card-summary").forEach(function(el) { if (summary) el.textContent = summary; });
+
+        // Translate fallback titles asynchronously
+        if (isFallback && titles.zh) {
+          var titleEls = card.querySelectorAll(".card-title");
+          var summaryEls = card.querySelectorAll(".card-summary");
+          translateViaServer(titles.zh, "zh", lang).then(function(t) {
+            if (t && t !== titles.zh) {
+              // Strip markdown + take only first line as title
+              var clean = t.replace(/^#+\s*/gm, '').replace(/\*{1,3}/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').split(/[\n\r]+/)[0].trim();
+              titleEls.forEach(function(el) { el.textContent = clean; });
+            }
+          });
+          if (summaries.zh) {
+            translateViaServer(summaries.zh, "zh", lang).then(function(t) {
+              if (t) summaryEls.forEach(function(el) { el.textContent = t; });
+            });
+          }
+        }
+      } catch(e) {}
+    });
+  }
+  updateCardTexts();
+  window.addEventListener("langchange", updateCardTexts);
+</script>

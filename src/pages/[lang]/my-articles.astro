@@ -1,0 +1,28 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import MyArticles from "../../components/MyArticles";
+import { validateSession } from "../../lib/auth";
+
+const lang = Astro.params.lang || "zh";
+const token = Astro.cookies.get("token")?.value || "";
+
+// Validate session
+const session = token ? validateSession(token) : null;
+
+if (!session) {
+  return Astro.redirect(`/${lang}/login/?redirect=/${lang}/my-articles/`);
+}
+
+// Create a mock user object from session
+const user = {
+  id: session.userId,
+  email: session.email,
+  role: session.role
+};
+---
+
+<BaseLayout title="我的文章" lang={lang}>
+  <MyArticles client:load token={token} user={user} />
+</BaseLayout>

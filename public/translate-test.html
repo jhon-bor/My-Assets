@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Translate Test</title></head><body>
+<h1>Translation Test</h1>
+<div id="result">Testing...</div>
+<script>
+(async function(){
+  const results = [];
+  
+  // Test 1: Google Translate
+  try {
+    const url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=" + encodeURIComponent("これはテストです");
+    const res = await fetch(url);
+    const data = await res.json();
+    results.push("Google: " + JSON.stringify(data[0][0]));
+  } catch(e) { results.push("Google: FAILED - " + e.message); }
+  
+  // Test 2: MyMemory
+  try {
+    const res = await fetch("https://api.mymemory.translated.net/get?q=" + encodeURIComponent("これはテストです") + "&langpair=ja|en");
+    const data = await res.json();
+    results.push("MyMemory: " + (data.responseData?.translatedText || "FAILED"));
+  } catch(e) { results.push("MyMemory: FAILED - " + e.message); }
+  
+  document.getElementById('result').innerHTML = results.join('<br>');
+})();
+</script>
+</body></html>

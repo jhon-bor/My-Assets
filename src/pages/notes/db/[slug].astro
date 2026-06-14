@@ -1,0 +1,298 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import ReadingProgress from "../../../components/ReadingProgress";
+import Backlinks from "../../../components/Backlinks.astro";
+import "../../../styles/reading.css";
+import { extractFirstImage } from "../../../utils/images";
+import { getApprovedArticles } from "../../../lib/db";
+import type { Article } from "../../../lib/db";
+
+const { slug } = Astro.params;
+const articles = await getApprovedArticles();
+const article = articles.find((a: Article) => a.slug === slug);
+if (!article) return Astro.redirect("/404");
+
+// Server-side language detection (matches i18next detection order)
+function getServerLang(): "zh" | "en" | "ja" | "fr" | "es" | "pt" | "de" | "it" {
+  const langs = ["zh", "en", "ja", "fr", "es", "pt", "de", "it"] as const;
+  // 1. localStorage is client-only, skip here
+  // 2. Cookie (set by middleware)
+  const cookieLang = Astro.cookies.get("lookfinde_lang")?.value;
+  if (cookieLang && langs.includes(cookieLang as typeof langs[number])) {
+    return cookieLang as "zh" | "en" | "ja" | "fr" | "es" | "pt" | "de" | "it";
+  }
+  // 3. Accept-Language header
+  const acceptLang = Astro.request.headers.get("accept-language");
+  if (acceptLang) {
+    const preferred = acceptLang.split(",")[0].trim().split(";")[0].replace(/-.*/, "");
+    if (langs.includes(preferred as typeof langs[number])) {
+      return preferred as "zh" | "en" | "ja" | "fr" | "es" | "pt" | "de" | "it";
+    }
+  }
+  return "zh";
+}
+
+const serverLang = getServerLang();
+
+function getArticleLangField(article: Article, field: "title" | "summary" | "content", lang: string): string {
+  if (lang === "zh") return article[field] || "";
+  const key = `${field}_${lang}` as keyof Article;
+  return (article[key] as string) || article[field] || "";
+}
+
+const title = getArticleLangField(article, "title", serverLang);
+const summary = getArticleLangField(article, "summary", serverLang);
+const content = getArticleLangField(article, "content", serverLang);
+
+/* ── Markdown renderer (preserves HTML tags like <video>, <iframe>, <img>) ── */
+function renderMarkdown(md: string): { html: string; headings: { depth: number; slug: string; text: string }[] } {
+  const headings: { depth: number; slug: string; text: string }[] = [];
+  const codeBlocks: string[] = [];
+  const inlineCodes: string[] = [];
+
+  let html = md;
+
+  // 1. Protect fenced code blocks first
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre data-lang="${lang || 'text'}"><code>${escapeHtml(code.trim())}</code></pre>`);
+    return `%%CODEBLOCK_${idx}%%`;
+  });
+
+  // 2. Protect inline code
+  html = html.replace(/`([^`]+)`/g, (_m, code) => {
+    const idx = inlineCodes.length;
+    inlineCodes.push(`<code>${escapeHtml(code)}</code>`);
+    return `%%INLINECODE_${idx}%%`;
+  });
+
+  // 3. Protect raw HTML tags (video, iframe, img, div, figure, etc.)
+  const htmlBlocks: string[] = [];
+  html = html.replace(/<(video|iframe|img|figure|figcaption|audio|source|embed|object|picture|svg\b)[^>]*\/?>/gi, (tag) => {
+    const idx = htmlBlocks.length;
+    htmlBlocks.push(tag);
+    return `%%HTMLTAG_${idx}%%`;
+  });
+  // Also protect closing tags
+  html = html.replace(/<\/(video|iframe|figure|figcaption|audio|picture|svg)\s*>/gi, (tag) => {
+    const idx = htmlBlocks.length;
+    htmlBlocks.push(tag);
+    return `%%HTMLTAG_${idx}%%`;
+  });
+
+  // 4. Headings
+  html = html.replace(/^(#{1,4})\s+(.+)$/gm, (_m, hashes, text) => {
+    const depth = hashes.length;
+    const hSlug = text.toLowerCase().replace(/[^\w一-鿿]+/g, '-').replace(/^-+|-+$/, '');
+    headings.push({ depth, slug: hSlug, text });
+    return `<h${depth} id="${hSlug}">${text}</h${depth}>`;
+  });
+
+  // 5. Bold & italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // 6. Images (Markdown syntax)
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy" />');
+
+  // 7. Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+  // 8. Wikilinks
+  html = html.replace(/\[\[([^\]|#]+?)(?:#([^\]|]+?))?(?:\|([^\]]+?))?\]\]/g, (_m, target, _heading, alias) => {
+    const t = (target as string).trim();
+    const label = alias ? (alias as string).trim() : t;
+    const s = t.toLowerCase().replace(/[^\w一-鿿]+/g, '-').replace(/^-+|-+$/, '');
+    return `<a href="/notes/${s}/" class="wikilink">${label}</a>`;
+  });
+
+  // 9. Callouts
+  html = html.replace(/^>\s*\[!(\w+)\]\s*(.*)$/gm, (_m, type, title) => {
+    const icons: Record<string, string> = { note: '📝', warning: '⚠️', tip: '💡', info: 'ℹ️', danger: '🔥', success: '✅', question: '❓', abstract: '📋', example: '📎', quote: '💬' };
+    return `<div class="callout"><div class="callout-title">${icons[type as string] || '📝'} ${title || type}</div><div class="callout-content">`;
+  });
+  html = html.replace(/<\/div>\n(?!>)/g, '</div></div>');
+
+  // 10. Horizontal rule
+  html = html.replace(/^---$/gm, '<hr />');
+
+  // 11. Paragraphs — wrap lines that don't start with HTML tags
+  html = html.replace(/^(?!<[a-z/!%])(.+)$/gm, '<p>$1</p>');
+  html = html.replace(/<p>\s*<\/p>/g, '');
+
+  // 12. Restore code blocks
+  codeBlocks.forEach((block, i) => {
+    html = html.replace(`%%CODEBLOCK_${i}%%`, block);
+  });
+  inlineCodes.forEach((code, i) => {
+    html = html.replace(`%%INLINECODE_${i}%%`, code);
+  });
+  htmlBlocks.forEach((tag, i) => {
+    html = html.replace(`%%HTMLTAG_${i}%%`, tag);
+  });
+
+  return { html, headings };
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const { html: renderedContent, headings } = renderMarkdown(content);
+
+// Reading time
+const charCount = content.replace(/\s/g, "").length;
+const readingTime = Math.max(1, Math.ceil(charCount / 400));
+
+const formattedDate = new Date(article.createdAt).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+const heroImage = extractFirstImage(content);
+---
+
+<BaseLayout title={title} description={summary || `阅读笔记：${title}`}>
+  <ReadingProgress client:load />
+
+  {/* Full-width hero banner */}
+  {heroImage && (
+    <div class="hero-banner">
+      <img src={heroImage} alt={title} class="hero-banner-img" />
+      <div class="hero-banner-overlay"></div>
+      <div class="container relative h-full flex items-end">
+        <div class="hero-banner-text">
+          <div class="flex items-center gap-2 flex-wrap mb-3">
+            {article.folder && <span class="hero-badge">{article.folder}</span>}
+            {article.tags.slice(0,3).map((tag: string) => <span class="hero-badge">#{tag}</span>)}
+            <span class="hero-badge" style="background:rgba(16,185,129,0.35)">✓</span>
+          </div>
+          <h1 class="hero-banner-title">{title}</h1>
+          <div class="hero-banner-meta">
+            <time datetime={article.createdAt}>{formattedDate}</time>
+            <span> · 作者: {article.authorEmail} · 约 {readingTime} 分钟</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
+
+  <div class="container py-6 sm:py-10">
+    <a href="/notes/" class="inline-flex items-center gap-1 text-sm mb-6 sm:hidden rounded-lg py-2 px-3 -ml-2 transition-colors hover:bg-[var(--color-bg-tertiary)]" style="color: var(--color-text-secondary); min-height: 44px;">
+      ← 返回笔记列表
+    </a>
+
+    <div class="flex flex-col lg:flex-row gap-8 lg:gap-14">
+      <article class="flex-1 min-w-0 max-w-none lg:max-w-[600px]">
+        {!heroImage && (
+          <header class="mb-10">
+            <div class="flex items-center gap-2 flex-wrap mb-4">
+              {article.folder && <span class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary)">📁 {article.folder}</span>}
+              {article.tags.map((tag: string) => <span class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary)">#{tag}</span>)}
+              <span class="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full" style="background: #dcfce7; color: #16a34a">✓ 已审核</span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight mb-4" style="color: var(--color-text); letter-spacing: -0.03em;">{title}</h1>
+            <div class="flex flex-wrap items-center gap-3 text-sm" style="color: var(--color-text-muted)">
+              <time datetime={article.createdAt} class="font-medium">{formattedDate}</time>
+              <span>· 作者: {article.authorEmail} · 约 {readingTime} 分钟</span>
+            </div>
+          </header>
+        )}
+
+        <div class="reading-article" set:html={renderedContent} />
+
+        <!-- Share -->
+        <div class="flex items-center gap-3 mt-10 pt-8 border-t" style="border-color: var(--color-border)">
+          <button onclick={`navigator.clipboard.writeText(window.location.href);this.textContent='✓ 已复制';setTimeout(()=>this.textContent='🔗 复制链接',2000)`} class="inline-flex items-center gap-1.5 rounded-full text-xs font-medium px-4 py-2 transition-all" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary); border: none; cursor: pointer; min-height: 40px;">
+            🔗 复制链接
+          </button>
+        </div>
+      </article>
+
+      <!-- Desktop TOC -->
+      <aside class="hidden lg:block lg:w-40 flex-shrink-0">
+        <div class="sticky" style="top: 120px;">
+          <h4 class="text-xs font-bold uppercase tracking-widest mb-4" style="color: var(--color-text-muted)">📑 目录</h4>
+          {headings.length > 1 ? (
+            <nav class="space-y-0.5 max-h-[65vh] overflow-y-auto">
+              {headings.map((h) => (
+                <a
+                  href={`#${h.slug}`}
+                  class="block rounded-lg py-2 px-3 text-sm transition-all hover:bg-[var(--color-bg-secondary)]"
+                  style={{
+                    paddingLeft: `${(h.depth - 1) * 10 + 10}px`,
+                    color: h.depth <= 2 ? "var(--color-text)" : "var(--color-text-secondary)",
+                    textDecoration: "none",
+                    minHeight: 34,
+                    fontSize: "0.8rem",
+                    borderLeft: "2px solid transparent",
+                  }}
+                >
+                  {h.text}
+                </a>
+              ))}
+            </nav>
+          ) : (
+            <p class="text-xs" style="color: var(--color-text-muted)">无目录</p>
+          )}
+        </div>
+      </aside>
+    </div>
+  </div>
+
+<style>
+  .hero-banner {
+    position: relative;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    min-height: 300px;
+    max-height: 500px;
+    overflow: hidden;
+    background: var(--color-bg-secondary);
+  }
+  @media (min-width: 768px) {
+    .hero-banner { min-height: 380px; }
+  }
+  .hero-banner-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .hero-banner-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top,
+      rgba(0,0,0,0.75) 0%,
+      rgba(0,0,0,0.3) 40%,
+      rgba(0,0,0,0.1) 70%,
+      rgba(0,0,0,0.05) 100%);
+    pointer-events: none;
+  }
+  .hero-banner-text {
+    position: relative;
+    padding: 3rem 0 2rem;
+    color: #fff;
+    max-width: 700px;
+  }
+  .hero-banner-title {
+    font-size: clamp(1.4rem, 5vw, 2.4rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.6rem;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .hero-banner-meta {
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center;
+    font-size: 0.72rem; font-weight: 600;
+    padding: 0.25rem 0.65rem; border-radius: var(--radius-full);
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    backdrop-filter: blur(6px);
+  }
+</style>
+</BaseLayout>

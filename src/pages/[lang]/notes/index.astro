@@ -1,0 +1,251 @@
+---
+export const prerender = false;
+import { getCollection } from "astro:content";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import NoteCard from "../../../components/NoteCard.astro";
+import DbArticlesFeed from "../../../components/DbArticlesFeed";
+import { translate } from "../../../lib/translate";
+import { readDB } from "../../../lib/db";
+import type { Lang } from "../../../lib/translate";
+
+const lang = Astro.params.lang as Lang;
+const L = `/${lang}`;
+
+const allNotes = await getCollection("notes");
+const publishedNotes = allNotes
+  .filter((n) => !n.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+// Get database articles (only approved ones)
+const db = await readDB();
+const dbArticles = db.articles.filter((a: any) => a.status === "approved");
+
+// Combined total count
+const published = publishedNotes;
+const totalCount = publishedNotes.length + dbArticles.length;
+
+// Server-side translate missing titles/summaries for current language (parallel)
+const noteTransCache: Record<string, { title: string; summary: string }> = {};
+if (lang !== "zh" && lang !== "en") {
+  const needsTrans = published.filter((n: any) => !(n.data as any)[`title_${lang}`]);
+  if (needsTrans.length > 0) {
+    const results = await Promise.all(needsTrans.map(async (n: any) => {
+      const zhTitle = n.data.title_zh || "";
+      const zhSummary = n.data.summary_zh || n.data.summary_en || "";
+      const [tr, sr] = await Promise.all([
+        translate({ text: zhTitle, from: "zh", to: lang }),
+        zhSummary ? translate({ text: zhSummary, from: "zh", to: lang }) : Promise.resolve({ success: false, text: "" } as any),
+      ]);
+      return {
+        slug: n.slug,
+        title: tr.success ? tr.text.replace(/^#+\s*/gm, '').replace(/\*{1,3}/g, '').split(/[\n\r]+/)[0].trim() : zhTitle,
+        summary: sr.success ? sr.text.split(/[\n\r]+/)[0].trim() : zhSummary,
+      };
+    }));
+    for (const r of results) noteTransCache[r.slug] = { title: r.title, summary: r.summary };
+  }
+}
+
+const allTags = [...new Set(published.flatMap((n: any) => n.data?.tags || []))].sort();
+
+const url = new URL(Astro.request.url);
+const selectedFolder = url.searchParams.get("folder");
+const selectedTag = url.searchParams.get("tag");
+
+let filtered = published;
+if (selectedFolder) filtered = filtered.filter((n: any) => n.data?.folder === selectedFolder);
+if (selectedTag) filtered = filtered.filter((n: any) => n.data?.tags?.includes(selectedTag));
+
+const folderCounts: Record<string, number> = {};
+for (const note of published) {
+  const folder = note.data?.folder || "未分类";
+  folderCounts[folder] = (folderCounts[folder] || 0) + 1;
+}
+---
+
+<BaseLayout title="全部笔记" description="浏览所有笔记，按文件夹和标签筛选。" lang={lang}>
+  <div class="container py-8">
+    <div class="mb-8">
+      <h1 class="text-2xl sm:text-3xl font-extrabold mb-2">📂 <span data-i="notes.all">全部笔记</span></h1>
+      <p style="color: var(--color-text-muted)">
+        共 <span class="font-bold" style="color: var(--color-primary)">{totalCount}</span> <span data-i="notes.count">篇</span>
+        {selectedFolder && (
+          <> · <span class="font-medium" style="color: var(--color-primary)" data-folder-name={selectedFolder}>📁 {selectedFolder}</span></>
+        )}
+        {selectedTag && (
+          <> · <span class="font-medium" style="color: var(--color-primary)">#{selectedTag}</span></>
+        )}
+        {(selectedFolder || selectedTag) && (
+          <a
+            href={`${L}/notes/`}
+            class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full"
+            style="background: var(--color-bg-tertiary); color: var(--color-text-muted); text-decoration: none;"
+            data-i="notes.clearFilter"
+          >
+            <span data-i="notes.clearFilter">清除筛选</span>
+          </a>
+        )}
+      </p>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-8 lg:gap-12">
+      {/* Desktop sidebar */}
+      <aside class="hidden lg:block lg:w-56 flex-shrink-0">
+        <div class="sticky top-20 space-y-6">
+          {/* Folders */}
+          <div>
+            <h4 class="text-xs font-bold uppercase tracking-widest mb-3" style="color: var(--color-text-muted)">
+              <span data-i="sidebar.folders">📂 文件夹</span>
+            </h4>
+            <div class="space-y-0.5">
+              <a href={`${L}/notes/`} class={`sidebar-filter-link ${!selectedFolder ? "active" : ""}`}>
+                <span data-i="notes.all">全部</span> ({published.length})
+              </a>
+              {Object.entries(folderCounts).sort().map(([name, count]) => (
+                <a
+                  href={`${L}/notes/?folder=${encodeURIComponent(name)}`}
+                  class={`sidebar-filter-link ${selectedFolder === name ? "active" : ""}`}
+                >
+                  📁 <span data-folder-name={name}>{name}</span> <span class="ml-auto text-xs" style="color: var(--color-text-muted)">{count}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Tags */}
+          {allTags.length > 0 && (
+            <div>
+              <h4 class="text-xs font-bold uppercase tracking-widest mb-3" style="color: var(--color-text-muted)">
+                <span data-i="notes.tags">🏷️ 标签</span>
+              </h4>
+              <div class="flex flex-wrap gap-1.5">
+                {allTags.map((tag) => (
+                  <a
+                    href={`${L}/notes/?tag=${encodeURIComponent(tag)}`}
+                    class={`tag-pill ${selectedTag === tag ? "active" : ""}`}
+                  >
+                    #{tag}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* Mobile filters */}
+      <div class="lg:hidden space-y-3">
+        <details
+          class="rounded-xl"
+          style="background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: var(--shadow-xs)"
+        >
+          <summary
+            class="flex items-center gap-2 p-3.5 font-medium cursor-pointer"
+            style="min-height: 48px"
+            data-i="notes.filter"
+          >
+            📁 <span data-i="notes.filter">文件夹筛选</span>
+            {selectedFolder && (
+              <span class="text-xs font-semibold ml-auto" style="color: var(--color-primary)">{selectedFolder}</span>
+            )}
+          </summary>
+          <div class="px-3 pb-3 space-y-0.5">
+            <a href={`${L}/notes/`} class={!selectedFolder ? "sidebar-filter-link active" : "sidebar-filter-link"}>
+              <span data-i="notes.all">全部</span> ({published.length})
+            </a>
+            {Object.entries(folderCounts).sort().map(([name, count]) => (
+              <a
+                href={`${L}/notes/?folder=${encodeURIComponent(name)}`}
+                class={selectedFolder === name ? "sidebar-filter-link active" : "sidebar-filter-link"}
+              >
+                📁 {name} ({count})
+              </a>
+            ))}
+          </div>
+        </details>
+      </div>
+
+      {/* Grid */}
+      <div class="flex-1 min-w-0">
+        {filtered.length === 0 ? (
+          <div class="text-center py-20">
+            <span class="text-5xl block mb-4">📭</span>
+            <p style="color: var(--color-text-muted)" data-i="notes.noMatch">
+              <span data-i="notes.noMatch">没有匹配的笔记</span>
+            </p>
+            <a
+              href={`${L}/notes/`}
+              class="inline-block mt-4 text-sm font-semibold px-4 py-2 rounded-full"
+              style="background: var(--color-primary-light); color: var(--color-primary); text-decoration: none;"
+              data-i="notes.clearFilter"
+            >
+              <span data-i="notes.clearFilter">清除筛选</span>
+            </a>
+          </div>
+        ) : (
+          <div class="space-y-3">
+            {filtered.map((note) => (
+              <NoteCard
+                title_zh={note.data.title_zh}
+                title_en={note.data.title_en}
+                title_ja={noteTransCache[note.slug]?.title || note.data.title_ja}
+                title_fr={noteTransCache[note.slug]?.title || note.data.title_fr}
+                title_es={noteTransCache[note.slug]?.title || note.data.title_es}
+                title_pt={noteTransCache[note.slug]?.title || note.data.title_pt}
+                title_de={noteTransCache[note.slug]?.title || note.data.title_de}
+                title_it={noteTransCache[note.slug]?.title || note.data.title_it}
+                slug={note.slug}
+                date={note.data.date.toISOString()}
+                tags={note.data.tags}
+                summary_zh={note.data.summary_zh}
+                summary_en={note.data.summary_en}
+                summary_ja={noteTransCache[note.slug]?.summary || note.data.summary_ja}
+                summary_fr={noteTransCache[note.slug]?.summary || note.data.summary_fr}
+                summary_es={noteTransCache[note.slug]?.summary || note.data.summary_es}
+                summary_pt={noteTransCache[note.slug]?.summary || note.data.summary_pt}
+                summary_de={noteTransCache[note.slug]?.summary || note.data.summary_de}
+                summary_it={noteTransCache[note.slug]?.summary || note.data.summary_it}
+                folder={note.data.folder}
+                body_zh={note.body?.split(/<!-- EN -->/i)[0] || ""}
+                lang={lang}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* DB Articles */}
+        <section class="mt-10">
+          <div class="flex items-center gap-3 mb-5">
+            <h2 class="text-xl font-bold" data-i="section.community">🌐 <span data-i="section.community">社区投稿</span></h2>
+          </div>
+          <div class="space-y-3">
+            <DbArticlesFeed client:load lang={lang} />
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .sidebar-filter-link {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
+    font-size: 0.85rem; font-weight: 500; text-decoration: none;
+    color: var(--color-text-secondary); transition: all 0.15s ease;
+  }
+  .sidebar-filter-link:hover { background: var(--color-bg-secondary); color: var(--color-text); }
+  .sidebar-filter-link.active {
+    background: var(--color-primary-light); color: var(--color-primary); font-weight: 600;
+  }
+
+  .tag-pill {
+    display: inline-flex; align-items: center;
+    padding: 0.25rem 0.65rem; border-radius: var(--radius-full);
+    font-size: 0.75rem; font-weight: 500; text-decoration: none;
+    background: var(--color-bg-tertiary); color: var(--color-text-secondary); transition: all 0.15s ease;
+  }
+  .tag-pill:hover { background: var(--color-primary-soft); color: var(--color-primary); }
+  .tag-pill.active { background: var(--color-primary); color: #fff; font-weight: 600; }
+</style>
+

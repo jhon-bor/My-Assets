@@ -1,0 +1,14 @@
+{
+  "title": "管理ダッシュボード",
+  "desc": "記事確認・公開管理",
+  "loginTitle": "管理者ログイン",
+  "loginDesc": "管理者のみアクセス可",
+  "pending": "確認待ち",
+  "approved": "公開済み",
+  "noPending": "確認待ち記事なし",
+  "noApproved": "公開済み記事なし",
+  "approve": "承認",
+  "reject": "却下",
+  "author": "著者",
+  "viewAll": "すべて表示"
+}

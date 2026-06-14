@@ -1,0 +1,66 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PublishEditor from "../components/PublishEditor";
+---
+
+<BaseLayout
+  title="发布文章"
+  description="撰写并发布新的笔记到数字花园。"
+>
+  <div class="container py-8 sm:py-10">
+    <div class="max-w-2xl mx-auto">
+      <h1 class="text-2xl font-bold mb-2" data-i="publish.heading">✍️ 发布新文章</h1>
+      <p class="mb-8" style="color: var(--color-text-muted)" data-i="publish.headingDesc">
+        使用 Markdown 编写，支持 Obsidian 语法。
+      </p>
+
+      <PublishEditor client:load />
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { LANGUAGES } from "../i18n/index";
+
+  const TEXTS: Record<string, Record<string, string>> = {
+    "publish.heading": {
+      zh: "✍️ 发布新文章", en: "✍️ Publish Article",
+      ja: "✍️ 記事を投稿", fr: "✍️ Publier un article",
+      es: "✍️ Publicar artículo", pt: "✍️ Publicar artigo",
+      de: "✍️ Artikel veröffentlichen", it: "✍️ Pubblica articolo",
+    },
+    "publish.headingDesc": {
+      zh: "使用 Markdown 编写，支持 Obsidian 语法。",
+      en: "Write in Markdown, Obsidian syntax supported.",
+      ja: "Markdownで執筆、Obsidian構文サポート。",
+      fr: "Écrivez en Markdown, syntaxe Obsidian supportée.",
+      es: "Escribe en Markdown, sintaxis Obsidian soportada.",
+      pt: "Escreva em Markdown, sintaxe Obsidian suportada.",
+      de: "In Markdown schreiben, Obsidian-Syntax unterstützt.",
+      it: "Scrivi in Markdown, sintassi Obsidian supportata.",
+    },
+  };
+
+  function getStoredLang(): string {
+    const s = localStorage.getItem("lookfinde_lang");
+    const all = LANGUAGES.map(l => l.code);
+    return all.includes(s || "") ? s! : "zh";
+  }
+
+  function updatePublishPage(lang: string) {
+    Object.keys(TEXTS).forEach(key => {
+      document.querySelectorAll(`[data-i="${key}"]`).forEach(el => {
+        el.textContent = TEXTS[key][lang] || TEXTS[key].zh;
+      });
+    });
+  }
+
+  // Init
+  updatePublishPage(getStoredLang());
+
+  // Sync on language change
+  window.addEventListener("langchange", (e: Event) => {
+    const lang = (e as CustomEvent<string>).detail?.lang || (window as any).__i18n?.language || "zh";
+    updatePublishPage(lang);
+  });
+</script>

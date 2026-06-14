@@ -1,0 +1,306 @@
+---
+export const prerender = false;
+import { getCollection } from "astro:content";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import ReadingProgress from "../../../components/ReadingProgress";
+import Backlinks from "../../../components/Backlinks.astro";
+import NoteContent from "../../../components/NoteContent";
+import "../../../styles/reading.css";
+import { buildBacklinkIndex } from "../../../utils/backlinks";
+import { extractFirstImage } from "../../../utils/images";
+import { splitBodyByLang, getTitle, getSummary, LANGS } from "../../../i18n/integration";
+import type { Lang } from "../../../i18n/integration";
+import { remark } from "remark";
+import remarkHtml from "remark-html";
+import { translate } from "../../../lib/translate";
+import { t as i18nT, translateFolder } from "../../../i18n/server";
+
+export async function getStaticPaths() {
+  const notes = await getCollection("notes");
+  return notes.filter((n) => !n.data.draft).map((n) => ({ params: { slug: n.slug } }));
+}
+
+const lang = Astro.params.lang as "zh" | "en" | "ja" | "fr" | "es" | "pt" | "de" | "it";
+const L = `/${lang}`;
+
+const { slug } = Astro.params;
+const allNotes = await getCollection("notes");
+const note = allNotes.find((n) => n.slug === slug);
+if (!note) return Astro.redirect("/404");
+
+// Split raw markdown by language delimiter (zh + en are pre-written)
+const rawBody = note.body || "";
+const bodyParts = splitBodyByLang(rawBody);
+
+// Render pre-written language versions
+const processor = remark().use(remarkHtml);
+const htmlMap: Record<Lang, string> = {} as any;
+for (const l of LANGS) {
+  const md = bodyParts[l];
+  htmlMap[l] = md ? String(await processor.process(md)) : "";
+}
+
+// On-demand content translation for current language if not pre-written
+if (!htmlMap[lang] && lang !== "zh") {
+  const srcMd = bodyParts.zh || bodyParts.en || rawBody;
+  const r = await translate({ text: srcMd.slice(0, 2000), from: "zh", to: lang as Lang });
+  if (r.success) {
+    htmlMap[lang] = String(await processor.process(r.text));
+  } else {
+    htmlMap[lang] = htmlMap.zh || String(await processor.process(srcMd));
+  }
+}
+// Ensure fallback
+if (!htmlMap[lang]) htmlMap[lang] = htmlMap.zh || "";
+
+// Reading time
+const wordCount = (bodyParts.zh || "").replace(/\s/g, "").length;
+const readingTime = Math.max(1, Math.ceil(wordCount / 400));
+
+// Backlinks
+const backlinkIndex = buildBacklinkIndex(
+  allNotes
+    .filter((n) => !n.data.draft)
+    .map((n) => ({ slug: n.slug, title: getTitle(n, "zh"), rawContent: n.body || "" }))
+);
+const thisBacklinks = backlinkIndex.get(note.slug) || [];
+
+// Prev / next
+const published = allNotes
+  .filter((n) => !n.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const currentIdx = published.findIndex((n) => n.slug === slug);
+const prevNote = currentIdx < published.length - 1 ? published[currentIdx + 1] : null;
+const nextNote = currentIdx > 0 ? published[currentIdx - 1] : null;
+
+const _ = (key: string) => i18nT(lang, key);
+const dateLocale = lang === "zh" ? "zh-CN" : lang;
+const formattedDate = note.data.date.toLocaleDateString(dateLocale, {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+const pageUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
+const heroImage = extractFirstImage(bodyParts.zh);
+
+// Get titles — only zh/en are in frontmatter; translate current lang on-demand via Cloudflare
+const titleZh = note.data.title_zh || "";
+const titleEn = note.data.title_en || "";
+const _tr = async (t: string, to: Lang) => { const r = await translate({ text: t, from: "zh", to }); return r.success ? r.text : t; };
+// Get or translate title for each language (only translate current lang to save API calls)
+const _title = (l: Lang) => (note.data as any)[`title_${l}`] || (l === "zh" ? titleZh : l === "en" ? titleEn : "");
+let titleJa = _title("ja"), titleFr = _title("fr"), titleEs = _title("es");
+let titlePt = _title("pt"), titleDe = _title("de"), titleIt = _title("it");
+
+// On-demand translate current page's title + update the data-title attribute
+if ((lang !== "zh" && lang !== "en") && !(note.data as any)[`title_${lang}`]) {
+  const r = await translate({ text: titleZh, from: "zh", to: lang });
+  if (r.success) {
+    // Strip markdown + take only first line as title (model sometimes outputs extra content)
+    const cleanTitle = r.text.replace(/^#+\s*/gm, '').replace(/\*{1,3}/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').split(/[\n\r]+/)[0].trim();
+    const titles: Record<string, any> = { ja: titleJa, fr: titleFr, es: titleEs, pt: titlePt, de: titleDe, it: titleIt };
+    titles[lang] = cleanTitle;
+    titleJa = titles["ja"]; titleFr = titles["fr"]; titleEs = titles["es"];
+    titlePt = titles["pt"]; titleDe = titles["de"]; titleIt = titles["it"];
+  }
+}
+
+const pageTitle = lang === "zh" ? titleZh : lang === "en" ? (titleEn || titleZh) :
+  ({ ja: titleJa, fr: titleFr, es: titleEs, pt: titlePt, de: titleDe, it: titleIt } as any)[lang] || titleZh;
+const summaryZh = getSummary(note, "zh");
+---
+
+<BaseLayout
+  title={titleZh}
+  description={summaryZh || `阅读笔记：${titleZh}`}
+  noIndex={note.data.draft}
+  lang={lang}
+>
+  <ReadingProgress client:load />
+
+  {/* Hero banner */}
+  {heroImage && (
+    <div class="hero-banner">
+      <img src={heroImage} alt={titleZh} class="hero-banner-img" />
+      <div class="hero-banner-overlay"></div>
+      <div class="container relative h-full flex items-end">
+        <div class="hero-banner-text">
+          <div class="flex items-center gap-2 flex-wrap mb-3">
+            {note.data.folder && <span class="hero-badge">📁 {translateFolder(note.data.folder, lang)}</span>}
+            {note.data.tags.slice(0, 3).map((tag) => <span class="hero-badge">#{tag}</span>)}
+          </div>
+          <h1 class="hero-banner-title note-title"
+            data-title-zh={titleZh}
+            data-title-en={titleEn}
+            data-title-ja={titleJa}
+            data-title-fr={titleFr}
+            data-title-es={titleEs}
+            data-title-pt={titlePt}
+            data-title-de={titleDe}
+            data-title-it={titleIt}
+          >{pageTitle}</h1>
+          <div class="hero-banner-meta">
+            <time datetime={note.data.date.toISOString()}>{formattedDate}</time>
+            <span> · ~{readingTime} {_("note.minutes")} · {wordCount} {_("note.chars")}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
+
+  <div class="container py-6 sm:py-10">
+    {/* Mobile back link */}
+    <a href={`${L}/notes/`} class="inline-flex items-center gap-1 text-sm mb-6 sm:hidden rounded-lg py-2 px-3 -ml-2 transition-colors hover:bg-[var(--color-bg-tertiary)]" style="color: var(--color-text-secondary); min-height: 44px;">
+      ← {_("note.back")}
+    </a>
+
+    <div class="flex flex-col lg:flex-row gap-8 lg:gap-14">
+      <div class="flex-1 min-w-0 lg:max-w-[600px]">
+        {/* No-image header */}
+        {!heroImage && (
+          <header class="mb-10">
+            <div class="flex items-center gap-2 flex-wrap mb-4">
+              {note.data.folder && (
+                <a href={`${L}/notes/?folder=${encodeURIComponent(note.data.folder)}`} class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full transition-colors hover:bg-[var(--color-primary-light)]" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary); text-decoration: none;">
+                  📁 {translateFolder(note.data.folder, lang)}
+                </a>
+              )}
+              {note.data.tags.map((tag) => (
+                <a href={`${L}/notes/?tag=${encodeURIComponent(tag)}`} class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full transition-colors hover:bg-[var(--color-primary-light)]" style="background: var(--color-bg-tertiary); color: var(--color-text-secondary); text-decoration: none;">
+                  #{tag}
+                </a>
+              ))}
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight mb-4 note-title"
+              data-title-zh={titleZh}
+              data-title-en={titleEn}
+              data-title-ja={titleJa}
+              data-title-fr={titleFr}
+              data-title-es={titleEs}
+              data-title-pt={titlePt}
+              data-title-de={titleDe}
+              data-title-it={titleIt}
+              style="color: var(--color-text); letter-spacing: -0.03em;"
+            >
+              {pageTitle}
+            </h1>
+            <div class="flex flex-wrap items-center gap-3 text-sm" style="color: var(--color-text-muted)">
+              <time datetime={note.data.date.toISOString()}>{formattedDate}</time>
+              {note.data.updated && (
+                <span>· {_("note.updated")} {note.data.updated.toLocaleDateString(dateLocale)}</span>
+              )}
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium" style="background: var(--color-bg-tertiary); color: var(--color-text-muted)">
+                ~{readingTime} {_("note.minutes")}
+              </span>
+              <span>{wordCount} {_("note.chars")}</span>
+            </div>
+          </header>
+        )}
+
+        {/* Content */}
+        <NoteContent
+          client:load
+          html_zh={htmlMap.zh}
+          html_en={htmlMap.en}
+          html_ja={htmlMap.ja}
+          html_fr={htmlMap.fr}
+          html_es={htmlMap.es}
+          html_pt={htmlMap.pt}
+          html_de={htmlMap.de}
+          html_it={htmlMap.it}
+          slug={note.slug}
+          title_zh={titleZh}
+          title_en={titleEn}
+          title_ja={titleJa}
+          title_fr={titleFr}
+          title_es={titleEs}
+          title_pt={titlePt}
+          title_de={titleDe}
+          title_it={titleIt}
+          prevNote_zh={getTitle(prevNote, "zh")}
+          prevNote_en={getTitle(prevNote, "en")}
+          prevNote_ja={getTitle(prevNote, "ja")}
+          prevNote_fr={getTitle(prevNote, "fr")}
+          prevNote_es={getTitle(prevNote, "es")}
+          prevNote_pt={getTitle(prevNote, "pt")}
+          prevNote_de={getTitle(prevNote, "de")}
+          prevNote_it={getTitle(prevNote, "it")}
+          prevSlug={prevNote?.slug}
+          nextNote_zh={getTitle(nextNote, "zh")}
+          nextNote_en={getTitle(nextNote, "en")}
+          nextNote_ja={getTitle(nextNote, "ja")}
+          nextNote_fr={getTitle(nextNote, "fr")}
+          nextNote_es={getTitle(nextNote, "es")}
+          nextNote_pt={getTitle(nextNote, "pt")}
+          nextNote_de={getTitle(nextNote, "de")}
+          nextNote_it={getTitle(nextNote, "it")}
+          nextSlug={nextNote?.slug}
+          pageUrl={pageUrl}
+          lang={lang}
+        />
+
+        <Backlinks backlinks={thisBacklinks} lang={lang} />
+      </div>
+
+      {/* Desktop TOC placeholder */}
+      <aside class="hidden lg:block lg:w-40 flex-shrink-0">
+        <div class="sticky" style="top: 120px;">
+          <div class="flex items-center gap-2 mb-4">
+            <h4 class="text-xs font-bold uppercase tracking-widest" style="color: var(--color-text-muted); padding: 0.3rem 0;">
+              📑 {_("note.toc")}
+            </h4>
+          </div>
+          <p class="text-xs" style="color: var(--color-text-muted)">
+            {_("note.noToc")}
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .toc-link:hover { background: var(--color-bg-secondary); border-left-color: var(--color-primary); }
+  .hero-banner {
+    position: relative; width: 100vw; margin-left: calc(50% - 50vw);
+    min-height: 300px; max-height: 500px; overflow: hidden; background: var(--color-bg-secondary);
+  }
+  @media (min-width: 768px) { .hero-banner { min-height: 380px; } }
+  .hero-banner-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .hero-banner-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.1) 70%, rgba(0,0,0,0.05) 100%);
+    pointer-events: none;
+  }
+  .hero-banner-text { position: relative; padding: 3rem 0 2rem; color: #fff; max-width: 700px; }
+  .hero-banner-title {
+    font-size: clamp(1.4rem, 5vw, 2.4rem); font-weight: 800; line-height: 1.15;
+    letter-spacing: -0.03em; margin-bottom: 0.6rem; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .hero-banner-meta { font-size: 0.9rem; color: rgba(255,255,255,0.85); font-weight: 500; }
+  .hero-badge {
+    display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 600;
+    padding: 0.25rem 0.65rem; border-radius: var(--radius-full);
+    background: rgba(255,255,255,0.18); color: #fff; backdrop-filter: blur(6px);
+  }
+</style>
+
+<script>
+  function getUrlLang() {
+    var m = window.location.pathname.match(/^\/([a-z]{2})\//);
+    if (m) return m[1];
+    return null;
+  }
+
+  function updateNoteTitles() {
+    var urlLang = getUrlLang();
+    var lang = urlLang || localStorage.getItem("lookfinde_lang") || "zh";
+    document.querySelectorAll(".note-title").forEach(function(el: any) {
+      // SSR renders zh; client switches via i18next
+      var t = el.getAttribute("data-title-" + lang) || el.getAttribute("data-title-zh") || "";
+      if (t) el.textContent = t;
+    });
+  }
+  updateNoteTitles();
+  window.addEventListener("langchange", updateNoteTitles);
+</script>

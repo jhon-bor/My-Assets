@@ -1,0 +1,14 @@
+{
+  "title": "Tableau de bord admin",
+  "desc": "Révision et gestion des articles",
+  "loginTitle": "Connexion admin",
+  "loginDesc": "Accès admin uniquement",
+  "pending": "En attente",
+  "approved": "Approuvé",
+  "noPending": "Aucun article en attente",
+  "noApproved": "Aucun article approuvé",
+  "approve": "Approuver",
+  "reject": "Rejeter",
+  "author": "Auteur",
+  "viewAll": "Voir tout"
+}

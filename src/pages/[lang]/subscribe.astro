@@ -1,0 +1,150 @@
+---
+export const prerender = false;
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import SubscribeForm from "../../components/SubscribeForm";
+
+const lang = Astro.params.lang as "zh" | "en" | "ja" | "fr" | "es" | "pt" | "de" | "it";
+const L = `/${lang}`;
+
+const benefits_zh = [
+  { icon: "📬", title: "邮件通知", desc: "新笔记发布后第一时间推送到你的邮箱" },
+  { icon: "📥", title: "附件下载", desc: "获取付费笔记的附件、模板、源文件" },
+  { icon: "⭐", title: "精选内容", desc: "独家深度长文，会员专属阅读" },
+  { icon: "🔍", title: "无广告", desc: "清爽阅读，永远没有广告打扰" },
+];
+
+const benefits_en = [
+  { icon: "📬", title: "Email Notifications", desc: "Get notified as soon as new notes are published" },
+  { icon: "📥", title: "Downloads", desc: "Access attachments, templates, and source files" },
+  { icon: "⭐", title: "Premium Content", desc: "Exclusive in-depth articles for members" },
+  { icon: "🔍", title: "Ad-Free", desc: "Clean reading experience, no ads ever" },
+];
+
+const updates_zh = [
+  { id: "1", title: "第一期更新 — Obsidian 双向链接教程", date: "2026-06-10", summary: "详解 Obsidian 双向链接的用法与最佳实践。", noteSlug: "obsidian-bidirectional-links" },
+  { id: "2", title: "新笔记：移动端适配指南", date: "2026-06-08", summary: "如何让你的网页在手机浏览器里媲美原生APP。", noteSlug: "mobile-first-guide" },
+];
+
+const updates_en = [
+  { id: "1", title: "Issue #1 — Obsidian Bidirectional Links Tutorial", date: "2026-06-10", summary: "Master Obsidian bidirectional links — usage and best practices.", noteSlug: "obsidian-bidirectional-links" },
+  { id: "2", title: "New: Mobile-First Responsive Design Guide", date: "2026-06-08", summary: "Make your web pages feel like native apps on mobile browsers.", noteSlug: "mobile-first-guide" },
+];
+---
+
+<BaseLayout
+  title="订阅更新"
+  description="免费订阅，第一时间获取新笔记推送和下载权限。"
+  lang={lang}
+>
+  <div class="container py-8 sm:py-12">
+    {/* Header */}
+    <div class="text-center mb-10 sm:mb-14">
+      <span class="text-5xl block mb-4">✨</span>
+      <h1 class="text-2xl sm:text-3xl font-extrabold mb-3" data-i="subscribe.title">订阅更新</h1>
+      <p class="text-lg max-w-md mx-auto leading-relaxed" style="color: var(--color-text-secondary)" data-i="subscribe.desc">
+        免费订阅，第一时间收到新笔记推送。
+      </p>
+    </div>
+
+    <div class="max-w-lg mx-auto space-y-10">
+      {/* Form */}
+      <section class="rounded-2xl p-6 sm:p-8" style="background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm)">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2" data-i="subscribe.formTitle">
+          📬 <span data-i="subscribe.formTitle">输入邮箱，免费订阅</span>
+        </h2>
+        <SubscribeForm client:load />
+        <p class="text-xs mt-4" style="color: var(--color-text-muted); line-height: 1.6" data-i="subscribe.privacy">
+          不发送垃圾邮件，随时可退订。你的邮箱仅用于更新通知。
+        </p>
+      </section>
+
+      {/* Benefits */}
+      <section>
+        <h2 class="text-lg font-bold mb-4" data-i="subscribe.benefits">
+          🎁 <span data-i="subscribe.benefits">订阅权益</span>
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="benefits-grid">
+          {[0,1,2,3].map((i) => (
+            <div class="benefit-card" data-benefit-idx={i}>
+              <span class="text-2xl block mb-2 benefit-icon">{["📬","📥","⭐","🔍"][i]}</span>
+              <h3 class="font-semibold mb-1 benefit-title" data-i18n={`subscribe.benefit${i+1}Title`} style="color: var(--color-text); font-size: 0.95rem"></h3>
+              <p class="text-sm m-0 leading-relaxed benefit-desc" data-i18n={`subscribe.benefit${i+1}Desc`} style="color: var(--color-text-secondary)"></p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Updates */}
+      <section>
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2" data-i="subscribe.updates">
+          🔔 <span data-i="subscribe.updates">最近更新</span>
+          <span id="updates-badge" class="inline-flex items-center justify-center rounded-full text-xs font-bold px-2 py-0.5" style="background: #ef4444; color: #fff; min-width: 20px; height: 20px;">
+            {updates_zh.length}
+          </span>
+        </h2>
+        <div class="space-y-3" id="updates-list">
+          {updates_zh.length === 0 ? (
+            <p class="text-sm" style="color: var(--color-text-muted)" data-i="subscribe.noUpdates">
+              <span data-i="subscribe.noUpdates">暂无更新记录</span>
+            </p>
+          ) : (
+            updates_zh.map((u, i) => (
+              <div class="update-card" data-update-idx={i}>
+                <div class="flex items-start justify-between gap-4">
+                  <div class="flex-1 min-w-0">
+                    {u.noteSlug ? (
+                      <a href={`${L}/notes/${u.noteSlug}/`} class="font-semibold text-sm sm:text-base transition-colors update-title" style="color: var(--color-text); text-decoration: none;">
+                        {u.title}
+                      </a>
+                    ) : (
+                      <h3 class="font-semibold text-sm sm:text-base update-title" style="color: var(--color-text)">{u.title}</h3>
+                    )}
+                    <p class="text-sm mt-1 line-clamp-2 update-summary" style="color: var(--color-text-secondary)">{u.summary}</p>
+                  </div>
+                  <time datetime={u.date} class="text-xs flex-shrink-0 font-medium" style="color: var(--color-text-muted)">{u.date}</time>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .benefit-card {
+    padding: 1.25rem; border-radius: var(--radius-lg);
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    transition: all 0.2s ease;
+  }
+  .benefit-card:hover { border-color: var(--color-primary); box-shadow: var(--shadow-sm); }
+
+  .update-card {
+    padding: 1rem 1.25rem; border-radius: var(--radius-lg);
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    transition: all 0.2s ease;
+  }
+  .update-card:hover { border-color: var(--color-primary); }
+  .update-title { transition: color 0.2s; }
+  .update-card:hover .update-title { color: var(--color-primary); }
+</style>
+
+<script>
+  function getUrlLang() {
+    var m = window.location.pathname.match(/^\/([a-z]{2})\//);
+    if (m) return m[1];
+    return null;
+  }
+
+  function syncSubscribeUI() {
+    var urlLang = getUrlLang();
+    var lang = urlLang || localStorage.getItem("lookfinde_lang") || "zh";
+    document.querySelectorAll(".update-card").forEach(function(card: any) {
+      var idx = parseInt(card.getAttribute("data-update-idx") || "0");
+      // titles/summaries already in HTML — no change needed
+    });
+  }
+  syncSubscribeUI();
+  window.addEventListener("langchange", syncSubscribeUI);
+</script>

@@ -1,0 +1,9 @@
+{
+  "all": "Tutte le note",
+  "count": "note",
+  "filter": "Filtra per cartella",
+  "current": "Attuale",
+  "clearFilter": "Cancella",
+  "noMatch": "Nessuna nota corrispondente",
+  "tags": "Tag"
+}

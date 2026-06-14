@@ -1,0 +1,88 @@
+---
+interface Heading { depth: number; slug: string; text: string; }
+interface Props { headings: Heading[]; }
+
+const { headings } = Astro.props;
+---
+
+{headings.length > 1 && (
+  <div id="toc-container">
+    <!-- TOC toggle button (floating) -->
+    <button id="toc-toggle" class="toc-fab sm:right-8" aria-label="显示目录">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+        <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+        <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+      </svg>
+    </button>
+
+    <!-- TOC overlay -->
+    <div id="toc-overlay" class="toc-overlay hidden" onclick="document.getElementById('toc-overlay')?.classList.add('hidden')">
+      <div class="toc-backdrop"></div>
+      <div class="toc-sheet" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-lg">📑 目录</h3>
+          <button class="toc-close-btn" aria-label="关闭" onclick="document.getElementById('toc-overlay')?.classList.add('hidden')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <nav class="space-y-0.5">
+          {headings.map((h) => (
+            <a
+              href={`#${h.slug}`}
+              class="toc-link"
+              style={{ paddingLeft: `${(h.depth - 1) * 14 + 10}px` }}
+              onclick="document.getElementById('toc-overlay')?.classList.add('hidden')"
+            >
+              {h.text}
+            </a>
+          ))}
+        </nav>
+      </div>
+    </div>
+
+    <script>
+      document.getElementById("toc-toggle")?.addEventListener("click", () => {
+        document.getElementById("toc-overlay")?.classList.remove("hidden");
+      });
+    </script>
+  </div>
+)}
+
+<style>
+  .toc-fab {
+    position: fixed; right: 1rem; bottom: 5.5rem; z-index: 40;
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--color-surface); color: var(--color-text-secondary);
+    border: 1px solid var(--color-border); cursor: pointer;
+    box-shadow: var(--shadow-md); transition: all 0.2s ease;
+    min-height: 44px; min-width: 44px;
+  }
+  .toc-fab:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+  .toc-overlay { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; }
+  .toc-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px); }
+  .toc-sheet {
+    position: relative; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    max-height: 70vh; overflow-y: auto; padding: 1.5rem;
+    background: var(--color-surface); z-index: 10;
+  }
+
+  .toc-close-btn {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 36px; min-width: 36px; border-radius: 50%;
+    background: var(--color-bg-tertiary); border: none; cursor: pointer;
+    transition: background 0.15s ease; color: var(--color-text);
+  }
+  .toc-close-btn:hover { background: var(--color-border); }
+
+  .toc-link {
+    display: block; padding: 0.55rem 0.7rem; border-radius: var(--radius-sm);
+    font-size: 0.85rem; text-decoration: none; transition: all 0.15s ease;
+    color: var(--color-text-secondary); min-height: 38px;
+  }
+  .toc-link:hover { background: var(--color-bg-secondary); color: var(--color-text); }
+</style>

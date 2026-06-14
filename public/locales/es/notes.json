@@ -1,0 +1,9 @@
+{
+  "all": "Todas las notas",
+  "count": "notas",
+  "filter": "Filtrar por carpeta",
+  "current": "Actual",
+  "clearFilter": "Limpiar",
+  "noMatch": "No hay notas coincidentes",
+  "tags": "Tags"
+}

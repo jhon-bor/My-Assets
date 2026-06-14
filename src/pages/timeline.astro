@@ -1,0 +1,263 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import DbTimelineFeed from "../components/DbTimelineFeed";
+import { getTitle, LANGS } from "../i18n/integration";
+import { readDB } from "../lib/db";
+import type { Lang } from "../i18n/integration";
+
+const allNotes = await getCollection("notes");
+const publishedNotes = allNotes
+  .filter((n) => !n.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+// Get database articles (only approved ones)
+const db = await readDB();
+const dbArticles = db.articles.filter((a: any) => a.status === "approved");
+
+// Combined total count
+const published = publishedNotes;
+const totalCount = publishedNotes.length + dbArticles.length;
+
+interface TimelineGroup {
+  label: string;
+  year: number;
+  month: number;
+  notes: typeof published;
+}
+
+const groups: TimelineGroup[] = [];
+let currentGroup: TimelineGroup | null = null;
+
+for (const note of published) {
+  const d = note.data.date;
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const label = `${year}年${month}月`;
+  if (!currentGroup || currentGroup.label !== label) {
+    currentGroup = { label, year, month, notes: [] };
+    groups.push(currentGroup);
+  }
+  currentGroup.notes.push(note);
+}
+---
+
+<BaseLayout title="时间线" description="按时间顺序浏览所有笔记。">
+  <div class="container py-8 sm:py-10">
+    {/* Header */}
+    <div class="mb-10">
+      <h1 class="text-2xl sm:text-3xl font-extrabold mb-2">⏰ <span data-i="timeline.title">时间线</span></h1>
+      <p style="color: var(--color-text-muted)">
+        共 <span class="font-bold" style="color: var(--color-primary)">{totalCount}</span> <span data-i="timeline.count">篇笔记，按时间排列</span>
+      </p>
+    </div>
+
+    {groups.length === 0 ? (
+      <div class="text-center py-20">
+        <span class="text-5xl block mb-4">📭</span>
+        <p style="color: var(--color-text-muted)" data-i="timeline.empty">
+          <span data-i="timeline.empty">暂无笔记</span>
+        </p>
+      </div>
+    ) : (
+      <div class="timeline max-w-2xl">
+        {groups.map((group) => (
+          <div class="timeline-group">
+            {/* Month header */}
+            <div class="timeline-header">
+              <div class="timeline-month-dot" aria-hidden="true"></div>
+              <h2 class="text-lg font-bold" style="color: var(--color-text)">{group.label}</h2>
+              <span class="timeline-count">{group.notes.length}</span>
+            </div>
+
+            {/* Notes */}
+            <div class="timeline-items">
+              {group.notes.map((note) => {
+                const day = note.data.date.getDate();
+                const weekday = ["日","一","二","三","四","五","六"][note.data.date.getDay()];
+                return (
+                  <a
+                    href={`/notes/${note.slug}/`}
+                    class="timeline-item"
+                    data-title-zh={note.data.title_zh}
+                    data-title-en={note.data.title_en || note.data.title_zh}
+                    data-title-ja={note.data.title_ja || note.data.title_en || note.data.title_zh}
+                    data-title-fr={note.data.title_fr || note.data.title_en || note.data.title_zh}
+                    data-title-es={note.data.title_es || note.data.title_en || note.data.title_zh}
+                    data-title-pt={note.data.title_pt || note.data.title_en || note.data.title_zh}
+                    data-title-de={note.data.title_de || note.data.title_en || note.data.title_zh}
+                    data-title-it={note.data.title_it || note.data.title_en || note.data.title_zh}
+                    data-summary-zh={note.data.summary_zh}
+                    data-summary-en={note.data.summary_en || note.data.summary_zh}
+                    data-summary-ja={note.data.summary_ja || note.data.summary_en || note.data.summary_zh}
+                    data-summary-fr={note.data.summary_fr || note.data.summary_en || note.data.summary_zh}
+                    data-summary-es={note.data.summary_es || note.data.summary_en || note.data.summary_zh}
+                    data-summary-pt={note.data.summary_pt || note.data.summary_en || note.data.summary_zh}
+                    data-summary-de={note.data.summary_de || note.data.summary_en || note.data.summary_zh}
+                    data-summary-it={note.data.summary_it || note.data.summary_en || note.data.summary_zh}
+                  >
+                    <div class="timeline-item-dot" aria-hidden="true"></div>
+                    <time datetime={note.data.date.toISOString()} class="timeline-date">
+                      <span class="timeline-day">{day}</span>
+                      <span class="timeline-weekday">周{weekday}</span>
+                    </time>
+                    <div class="flex-1 min-w-0">
+                      <h3 class="timeline-item-title tl-title">{note.data.title_zh}</h3>
+                      {(note.data.summary_zh || note.data.summary_en) && (
+                        <p class="line-clamp-2 mt-1 tl-summary" style="color: var(--color-text-secondary); font-size: 0.85rem;">
+                          {note.data.summary_zh || note.data.summary_en}
+                        </p>
+                      )}
+                      <div class="flex items-center gap-2 mt-2 flex-wrap">
+                        {note.data.folder && (
+                          <span class="badge-sm" data-folder-name={note.data.folder}>📁 {note.data.folder}</span>
+                        )}
+                        {note.data.tags.slice(0, 2).map((tag) => (
+                          <span class="badge-sm-accent">#{tag}</span>
+                        ))}
+                        {note.data.premium && (
+                          <span class="badge-sm-premium" data-i="note.premium">⭐ <span data-i="note.premium">会员</span></span>
+                        )}
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* DB Articles timeline */}
+    <div class="max-w-2xl mt-10">
+      <div class="flex items-center gap-3 mb-6">
+        <h2 class="text-lg font-bold" data-i="section.community">🌐 <span data-i="section.community">用户投稿</span></h2>
+      </div>
+      <DbTimelineFeed client:load />
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .timeline { position: relative; }
+
+  .timeline-group { margin-bottom: 2.5rem; }
+
+  .timeline-header {
+    display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;
+  }
+
+  .timeline-month-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--gradient-primary); flex-shrink: 0;
+    box-shadow: 0 0 0 5px var(--color-primary-light);
+  }
+
+  .timeline-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; height: 22px; padding: 0 6px;
+    border-radius: var(--radius-full); font-size: 0.7rem; font-weight: 700;
+    background: var(--color-bg-tertiary); color: var(--color-text-muted);
+  }
+
+  .timeline-items {
+    position: relative; margin-left: 6px;
+    padding-left: 2rem; border-left: 2px solid var(--color-border);
+  }
+
+  .timeline-item {
+    position: relative; display: flex; gap: 1rem;
+    padding: 1.1rem 1.25rem; margin-bottom: 0.75rem;
+    border-radius: var(--radius-lg); text-decoration: none; color: inherit;
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-card); transition: all 0.3s ease;
+  }
+
+  .timeline-item:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--color-primary-soft);
+    transform: translateX(4px);
+  }
+
+  .timeline-item-dot {
+    position: absolute; left: -2.15rem; top: 1.4rem;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--color-text-muted);
+    border: 2.5px solid var(--color-bg); flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .timeline-item:hover .timeline-item-dot {
+    background: var(--color-primary);
+    box-shadow: 0 0 0 4px var(--color-primary-light);
+  }
+
+  .timeline-date {
+    display: flex; flex-direction: column; align-items: center;
+    flex-shrink: 0; width: 40px; text-align: center;
+  }
+
+  .timeline-day {
+    font-size: 1.35rem; font-weight: 800; line-height: 1;
+    color: var(--color-text);
+  }
+
+  .timeline-weekday {
+    font-size: 0.7rem; font-weight: 500; margin-top: 2px;
+    color: var(--color-text-muted);
+  }
+
+  .timeline-item-title {
+    font-weight: 700; font-size: 0.95rem; line-height: 1.4;
+    color: var(--color-text); transition: color 0.2s ease;
+  }
+
+  .timeline-item:hover .timeline-item-title { color: var(--color-primary); }
+
+  .badge-sm {
+    display: inline-flex; align-items: center;
+    font-size: 0.7rem; font-weight: 500;
+    padding: 0.15rem 0.55rem; border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary); color: var(--color-text-secondary);
+  }
+
+  .badge-sm-accent {
+    display: inline-flex; align-items: center;
+    font-size: 0.7rem; font-weight: 500;
+    padding: 0.15rem 0.55rem; border-radius: var(--radius-full);
+    background: var(--color-primary-light); color: var(--color-primary);
+  }
+
+  .badge-sm-premium {
+    display: inline-flex; align-items: center;
+    font-size: 0.7rem; font-weight: 600;
+    padding: 0.15rem 0.55rem; border-radius: var(--radius-full);
+    background: var(--color-accent-light); color: var(--color-accent);
+  }
+
+  @media (max-width: 640px) {
+    .timeline-items { padding-left: 1.5rem; }
+    .timeline-item { padding: 0.9rem 1rem; gap: 0.75rem; }
+    .timeline-item-dot { left: -1.65rem; width: 8px; height: 8px; top: 1.3rem; }
+    .timeline-date { width: 34px; }
+    .timeline-day { font-size: 1.15rem; }
+  }
+</style>
+
+<script>
+  function updateTimeline() {
+    var lang = localStorage.getItem("lookfinde_lang") || "zh";
+    var LANGS = ["zh", "en", "ja", "fr", "es", "pt", "de", "it"];
+    document.querySelectorAll(".timeline-item").forEach(function(item: any) {
+      var title = item.getAttribute("data-title-" + lang) || item.getAttribute("data-title-zh") || "";
+      var summary = item.getAttribute("data-summary-" + lang) || item.getAttribute("data-summary-zh") || "";
+      item.querySelectorAll(".tl-title").forEach(function(el: any) { el.textContent = title; });
+      item.querySelectorAll(".tl-summary").forEach(function(el: any) {
+        if (summary) el.textContent = summary;
+      });
+    });
+  }
+  updateTimeline();
+  window.addEventListener("langchange", updateTimeline);
+</script>

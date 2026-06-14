@@ -1,0 +1,14 @@
+{
+  "title": "Admin Dashboard",
+  "desc": "Article review & management",
+  "loginTitle": "Admin Login",
+  "loginDesc": "Admin access only",
+  "pending": "Pending",
+  "approved": "Approved",
+  "noPending": "No pending articles",
+  "noApproved": "No approved articles",
+  "approve": "Approve",
+  "reject": "Reject",
+  "author": "Author",
+  "viewAll": "View All"
+}
