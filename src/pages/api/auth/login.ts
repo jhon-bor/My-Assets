@@ -4,12 +4,12 @@ import type { APIRoute } from "astro";
 import { findUserByEmail, seedAdmin } from "../../../lib/db";
 import { verifyPassword, createSession } from "../../../lib/auth";
 
-// Seed admin account on first request
 let seeded = false;
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    if (!seeded) { await seedAdmin(); seeded = true; }
+    const env = locals.runtime?.env || (locals as any).env;
+    if (!seeded) { await seedAdmin(env); seeded = true; }
     const { email, password } = await request.json();
 
     if (!email || !password) {
@@ -19,7 +19,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const user = await findUserByEmail(email);
+    const user = await findUserByEmail(email, env);
     if (!user) {
       return new Response(JSON.stringify({ error: "邮箱或密码错误。" }), {
         status: 401,

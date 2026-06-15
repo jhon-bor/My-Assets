@@ -4,8 +4,9 @@ import type { APIRoute } from "astro";
 import { findUserByEmail, createUser } from "../../../lib/db";
 import { hashPassword, createSession } from "../../../lib/auth";
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
+    const env = locals.runtime?.env || (locals as any).env;
     const { email, password, displayName } = await request.json();
 
     if (!email || !password) {
@@ -22,7 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const existing = await findUserByEmail(email);
+    const existing = await findUserByEmail(email, env);
     if (existing) {
       return new Response(JSON.stringify({ error: "该邮箱已注册。" }), {
         status: 409,
@@ -36,7 +37,7 @@ export const POST: APIRoute = async ({ request }) => {
       passwordHash,
       role: "subscriber",
       displayName: displayName || email.split("@")[0],
-    });
+    }, env);
 
     const token = createSession(user.id, user.role, user.email);
 

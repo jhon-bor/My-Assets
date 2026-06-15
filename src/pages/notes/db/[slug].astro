@@ -10,7 +10,8 @@ import { getApprovedArticles } from "../../../lib/db";
 import type { Article } from "../../../lib/db";
 
 const { slug } = Astro.params;
-const articles = await getApprovedArticles();
+const env = Astro.locals.runtime?.env || (Astro.locals as any).env;
+const articles = env ? await getApprovedArticles(env) : [];
 const article = articles.find((a: Article) => a.slug === slug);
 if (!article) return Astro.redirect("/404");
 

@@ -8,12 +8,12 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
-import { readDB, writeDB } from "../../../lib/db";
-import type { Article } from "../../../lib/db";
+import { getArticleById, updateArticle } from "../../../lib/db";
 import { getArticleInLang } from "../../../lib/article-translate";
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
+    const env = locals.runtime?.env || (locals as any).env;
     const { articleId, lang } = await request.json() as { articleId?: string; lang?: string };
 
     if (!articleId || !lang) {
@@ -23,8 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const db = await readDB();
-    const article = db.articles.find((a) => a.id === articleId);
+    const article = await getArticleById(articleId, env);
     if (!article) {
       return new Response(JSON.stringify({ error: "Article not found" }), {
         status: 404,
@@ -33,6 +32,14 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const result = await getArticleInLang(article, lang);
+
+    // Cache the translation back to D1
+    const prefix = lang === "en" ? "" : `_${lang}`;
+    await updateArticle(articleId, {
+      [`title${prefix}`]: result.title,
+      [`summary${prefix}`]: result.summary,
+      [`content${prefix}`]: result.content,
+    }, env);
 
     return new Response(
       JSON.stringify({

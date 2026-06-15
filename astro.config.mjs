@@ -3,7 +3,6 @@ import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 import cloudflare from "@astrojs/cloudflare";
 import tailwindcss from "@tailwindcss/vite";
-import astroI18next from "astro-i18next";
 
 export default defineConfig({
   site: "https://my-assets.pages.dev",
@@ -11,9 +10,12 @@ export default defineConfig({
   adapter: cloudflare({
     platformProxy: { enabled: true },
   }),
-  integrations: [react(), astroI18next()],
+  integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
+    ssr: {
+      external: ["node:module", "node:fs", "node:path", "node:fs/promises"],
+    },
   },
   markdown: {
     shikiConfig: {

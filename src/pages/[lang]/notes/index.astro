@@ -5,7 +5,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import NoteCard from "../../../components/NoteCard.astro";
 import DbArticlesFeed from "../../../components/DbArticlesFeed";
 import { translate } from "../../../lib/translate";
-import { readDB } from "../../../lib/db";
+import { getApprovedArticles } from "../../../lib/db";
 import type { Lang } from "../../../lib/translate";
 
 const lang = Astro.params.lang as Lang;
@@ -17,8 +17,8 @@ const publishedNotes = allNotes
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
 // Get database articles (only approved ones)
-const db = await readDB();
-const dbArticles = db.articles.filter((a: any) => a.status === "approved");
+const env = Astro.locals.runtime?.env || (Astro.locals as any).env;
+const dbArticles = env ? await getApprovedArticles(env) : [];
 
 // Combined total count
 const published = publishedNotes;

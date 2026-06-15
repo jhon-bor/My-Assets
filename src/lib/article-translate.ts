@@ -1,14 +1,10 @@
 /**
- * On-demand article translation with DB caching.
- *
- * When a reader views an article in a language different from the source,
- * we translate title/summary/content on the fly and cache the result in
- * the DB so subsequent readers get it instantly.
+ * On-demand article translation.
+ * Caching is handled at the API layer (translate.ts) using D1.
  */
 
 import { translate, SUPPORTED_LANGS } from "./translate";
 import type { Lang } from "./translate";
-import { readDB, writeDB } from "./db";
 import type { Article } from "./db";
 
 export interface ArticleTranslation {
@@ -67,28 +63,6 @@ export async function getArticleInLang(
   const summaryText = summaryResult?.success ? summaryResult.text : article.summary;
   const contentText = contentResult.success ? contentResult.text : article.content;
   const backend = titleResult.backend !== "none" ? titleResult.backend : "unknown";
-  const anySuccess = titleResult.success || contentResult.success;
-
-  // Only cache if at least one translation actually succeeded (not original fallback)
-  if (anySuccess) {
-    try {
-      const db = await readDB();
-      const a = db.articles.find((a) => a.id === article.id);
-      if (a) {
-        const tk = `title_${targetLang}` as keyof Article;
-        const sk = `summary_${targetLang}` as keyof Article;
-        const ck = `content_${targetLang}` as keyof Article;
-        if (titleResult.success) (a as any)[tk] = titleText;
-        if (summaryResult?.success) (a as any)[sk] = summaryText;
-        if (contentResult.success) (a as any)[ck] = contentText;
-        a.translatedAt = new Date().toISOString();
-        a.translationBackend = a.translationBackend || backend;
-        await writeDB(db);
-      }
-    } catch {
-      // Non-fatal: cache write failure
-    }
-  }
 
   return {
     title: titleText,

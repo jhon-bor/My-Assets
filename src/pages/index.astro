@@ -6,7 +6,7 @@ import NoteCard from "../components/NoteCard.astro";
 import FolderTree from "../components/FolderTree.astro";
 import DbArticlesFeed from "../components/DbArticlesFeed";
 import { extractFirstImage } from "../utils/images";
-import { readDB } from "../lib/db";
+import { getApprovedArticles } from "../lib/db";
 import type { FolderItem } from "../components/FolderTree.astro";
 
 const allNotes = await getCollection("notes");
@@ -15,8 +15,8 @@ const publishedNotes = allNotes
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
 // Get database articles (only approved ones)
-const db = await readDB();
-const dbArticles = db.articles.filter((a: any) => a.status === "approved");
+const env = Astro.locals.runtime?.env || (Astro.locals as any).env;
+const dbArticles = env ? await getApprovedArticles(env) : [];
 
 // Combined totals
 const totalNotes = publishedNotes.length + dbArticles.length;

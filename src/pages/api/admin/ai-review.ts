@@ -10,20 +10,19 @@ export const prerender = false;
 
 import type { APIRoute } from "astro";
 import { requireAdmin, authErrorResponse } from "../../../lib/auth";
-import { readDB, writeDB } from "../../../lib/db";
+import { getArticleById, updateArticle } from "../../../lib/db";
 import { processPendingArticles, reviewArticle } from "../../../lib/ai-review";
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
+    const env = locals.runtime?.env || (locals as any).env;
     requireAdmin(request);
     
     const body = await request.json().catch(() => ({}));
     const { articleId } = body as { articleId?: string };
     
     if (articleId) {
-      // Review a specific article
-      const db = await readDB();
-      const article = db.articles.find(a => a.id === articleId);
+      const article = await getArticleById(articleId, env);
       
       if (!article) {
         return new Response(JSON.stringify({ error: "文章不存在" }), {
@@ -34,16 +33,13 @@ export const POST: APIRoute = async ({ request }) => {
       
       const result = await reviewArticle(article);
       
-      // Update article with review results
-      if (result.tags.length > 0) {
-        article.tags = result.tags;
-      }
-      
       if (result.approved) {
-        article.status = "approved";
-        article.reviewedAt = result.analyzedAt;
-        article.reviewedBy = "AI_MANUAL_REVIEW";
-        await writeDB(db);
+        await updateArticle(articleId, {
+          status: "approved",
+          tags: result.tags.length > 0 ? result.tags : article.tags,
+          reviewedAt: result.analyzedAt,
+          reviewedBy: "AI_MANUAL_REVIEW",
+        }, env);
       }
       
       return new Response(
@@ -58,8 +54,7 @@ export const POST: APIRoute = async ({ request }) => {
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     } else {
-      // Process all pending articles
-      const results = await processPendingArticles();
+      const results = await processPendingArticles(env);
       
       return new Response(
         JSON.stringify({

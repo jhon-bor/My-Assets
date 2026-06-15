@@ -3,7 +3,7 @@ import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import DbTimelineFeed from "../components/DbTimelineFeed";
 import { getTitle, LANGS } from "../i18n/integration";
-import { readDB } from "../lib/db";
+import { getApprovedArticles } from "../lib/db";
 import type { Lang } from "../i18n/integration";
 
 const allNotes = await getCollection("notes");
@@ -12,8 +12,8 @@ const publishedNotes = allNotes
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
 // Get database articles (only approved ones)
-const db = await readDB();
-const dbArticles = db.articles.filter((a: any) => a.status === "approved");
+const env = Astro.locals.runtime?.env || (Astro.locals as any).env;
+const dbArticles = env ? await getApprovedArticles(env) : [];
 
 // Combined total count
 const published = publishedNotes;

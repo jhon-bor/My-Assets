@@ -6,13 +6,13 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
-import { readDB, writeDB } from "../../../lib/db";
+import { getArticleById, updateArticle } from "../../../lib/db";
 import { requireAuth, authErrorResponse, slugify } from "../../../lib/auth";
 
-export const PUT: APIRoute = async ({ request }) => {
+export const PUT: APIRoute = async ({ request, locals }) => {
   try {
+    const env = locals.runtime?.env || (locals as any).env;
     const session = requireAuth(request);
-    const db = await readDB();
 
     const { articleId, title, content, folder, tags, summary } = await request.json() as {
       articleId?: string; title?: string; content?: string; folder?: string; tags?: string[]; summary?: string;
@@ -25,7 +25,7 @@ export const PUT: APIRoute = async ({ request }) => {
       });
     }
 
-    const article = db.articles.find((a) => a.id === articleId);
+    const article = await getArticleById(articleId, env);
     if (!article) {
       return new Response(JSON.stringify({ error: "文章不存在" }), {
         status: 404,
@@ -33,7 +33,6 @@ export const PUT: APIRoute = async ({ request }) => {
       });
     }
 
-    // Only author or admin can edit
     if (article.authorId !== session.userId && session.role !== "admin") {
       return new Response(JSON.stringify({ error: "无权修改此文章" }), {
         status: 403,
@@ -41,28 +40,30 @@ export const PUT: APIRoute = async ({ request }) => {
       });
     }
 
-    // Update fields
+    const updates: Record<string, any> = {};
     if (title !== undefined) {
-      article.title = title.trim();
-      article.slug = slugify(title.trim());
+      updates.title = title.trim();
+      updates.slug = slugify(title.trim());
     }
-    if (content !== undefined) article.content = content.trim();
-    if (folder !== undefined) article.folder = folder.trim();
-    if (tags !== undefined) article.tags = tags;
-    if (summary !== undefined) article.summary = summary.trim();
+    if (content !== undefined) updates.content = content.trim();
+    if (folder !== undefined) updates.folder = folder.trim();
+    if (tags !== undefined) updates.tags = tags;
+    if (summary !== undefined) updates.summary = summary.trim();
 
     // Clear translations so they get re-generated on next view
-    const transFields = Object.keys(article).filter((k) =>
-      k.startsWith("title_") || k.startsWith("content_") || k.startsWith("summary_")
-    );
-    for (const k of transFields) delete (article as any)[k];
-    article.translatedAt = undefined;
-    article.translationBackend = undefined;
+    updates.title_en = undefined; updates.title_ja = undefined; updates.title_fr = undefined;
+    updates.title_es = undefined; updates.title_pt = undefined; updates.title_de = undefined; updates.title_it = undefined;
+    updates.content_en = undefined; updates.content_ja = undefined; updates.content_fr = undefined;
+    updates.content_es = undefined; updates.content_pt = undefined; updates.content_de = undefined; updates.content_it = undefined;
+    updates.summary_en = undefined; updates.summary_ja = undefined; updates.summary_fr = undefined;
+    updates.summary_es = undefined; updates.summary_pt = undefined; updates.summary_de = undefined; updates.summary_it = undefined;
+    updates.translatedAt = undefined;
+    updates.translationBackend = undefined;
 
-    await writeDB(db);
+    const updated = await updateArticle(articleId, updates, env);
 
     return new Response(
-      JSON.stringify({ success: true, article: { id: article.id, slug: article.slug } }),
+      JSON.stringify({ success: true, article: { id: updated?.id, slug: updated?.slug } }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {

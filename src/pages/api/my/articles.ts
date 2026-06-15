@@ -8,11 +8,12 @@ export const prerender = false;
 
 import type { APIRoute } from "astro";
 import { getTokenFromRequest, validateSession, authErrorResponse } from "../../../lib/auth";
-import { readDB } from "../../../lib/db";
+import { getArticlesByAuthor } from "../../../lib/db";
 
-export const GET: APIRoute = async ({ request }) => {
+export const GET: APIRoute = async ({ request, locals }) => {
   try {
-    // 1. 验证用户身份
+    const env = locals.runtime?.env || (locals as any).env;
+    
     const token = getTokenFromRequest(request);
     
     if (!token) {
@@ -31,17 +32,8 @@ export const GET: APIRoute = async ({ request }) => {
       });
     }
 
-    // 2. 从数据库读取所有文章
-    const db = await readDB();
-    
-    // 3. 筛选当前用户的文章
-    const myArticles = db.articles
-      .filter(article => article.authorId === session.userId)
-      .sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+    const myArticles = await getArticlesByAuthor(session.userId, env);
 
-    // 4. 计算统计数据
     const stats = {
       total: myArticles.length,
       published: myArticles.filter(a => a.status === "approved").length,
@@ -50,7 +42,6 @@ export const GET: APIRoute = async ({ request }) => {
       deleted: myArticles.filter(a => a.status === "deleted").length,
     };
 
-    // 5. 返回用户的文章列表和统计
     return new Response(JSON.stringify({
       articles: myArticles,
       stats: stats

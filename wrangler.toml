@@ -3,4 +3,10 @@ compatibility_date = "2024-07-15"
 
 [build]
 command = "npm run build"
+
 pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "my_assets_db"
+database_name = "my-assets-db"
+database_id = "a51b4b83-c7df-4014-8cf3-bc3ba5e29c7b"

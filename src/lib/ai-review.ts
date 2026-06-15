@@ -10,7 +10,7 @@
  */
 
 import type { Article } from "./db";
-import { readDB, writeDB } from "./db";
+import { getArticleById, updateArticle, getPendingArticles } from "./db";
 
 export interface ReviewResult {
   approved: boolean;
@@ -456,14 +456,13 @@ export async function reviewArticle(
 /**
  * Process pending articles and auto-approve if they pass AI review
  */
-export async function processPendingArticles(): Promise<{
+export async function processPendingArticles(env: any): Promise<{
   processed: number;
   autoApproved: number;
   flagged: number;
   results: Array<{ articleId: string; result: ReviewResult }>;
 }> {
-  const db = await readDB();
-  const pendingArticles = db.articles.filter(a => a.status === "pending");
+  const pendingArticles = await getPendingArticles(env);
   
   const results: Array<{ articleId: string; result: ReviewResult }> = [];
   let autoApproved = 0;
@@ -472,16 +471,14 @@ export async function processPendingArticles(): Promise<{
   for (const article of pendingArticles) {
     const result = await reviewArticle(article);
     
-    // Update article with generated tags
-    if (result.tags.length > 0) {
-      article.tags = result.tags;
-    }
-    
     // Auto-approve if passed review
     if (result.approved) {
-      article.status = "approved";
-      article.reviewedAt = result.analyzedAt;
-      article.reviewedBy = "AI_AUTOMATED";
+      await updateArticle(article.id, {
+        status: "approved",
+        tags: result.tags.length > 0 ? result.tags : article.tags,
+        reviewedAt: result.analyzedAt,
+        reviewedBy: "AI_AUTOMATED",
+      }, env);
       autoApproved++;
     } else {
       flagged++;
@@ -489,8 +486,6 @@ export async function processPendingArticles(): Promise<{
     
     results.push({ articleId: article.id, result });
   }
-  
-  await writeDB(db);
   
   return {
     processed: pendingArticles.length,
@@ -503,22 +498,17 @@ export async function processPendingArticles(): Promise<{
 /**
  * Quick review for a single article (used when article is submitted)
  */
-export async function quickReview(article: Article): Promise<ReviewResult> {
+export async function quickReview(article: Article, env: any): Promise<ReviewResult> {
   const result = await reviewArticle(article);
   
   // If auto-approved, update the article immediately
   if (result.approved) {
-    const db = await readDB();
-    const a = db.articles.find(art => art.id === article.id);
-    if (a) {
-      a.status = "approved";
-      a.reviewedAt = result.analyzedAt;
-      a.reviewedBy = "AI_AUTOMATED";
-      if (result.tags.length > 0) {
-        a.tags = result.tags;
-      }
-      await writeDB(db);
-    }
+    await updateArticle(article.id, {
+      status: "approved",
+      tags: result.tags.length > 0 ? result.tags : article.tags,
+      reviewedAt: result.analyzedAt,
+      reviewedBy: "AI_AUTOMATED",
+    }, env);
   }
   
   return result;
