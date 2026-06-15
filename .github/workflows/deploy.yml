@@ -8,6 +8,12 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+    environment:
+      name: production
+      url: https://my-assets.pages.dev
     steps:
       - name: Checkout
         uses: actions/checkout@v4
